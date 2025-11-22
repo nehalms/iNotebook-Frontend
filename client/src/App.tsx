@@ -17,6 +17,8 @@ import DashboardPage from "@/pages/dashboard";
 import NotesPage from "@/pages/notes";
 import TasksPage from "@/pages/tasks";
 import GamesPage from "@/pages/games";
+import TicTacToePage from "@/pages/tic-tac-toe";
+import FourInRowPage from "@/pages/four-in-row";
 import MessagesPage from "@/pages/messages";
 import ImagesPage from "@/pages/images";
 import AdminPage from "@/pages/admin";
@@ -65,6 +67,8 @@ function AuthenticatedApp() {
               <Route path="/notes" component={NotesPage} />
               <Route path="/tasks" component={TasksPage} />
               <Route path="/games" component={GamesPage} />
+              <Route path="/games/tic-tac-toe" component={TicTacToePage} />
+              <Route path="/games/four-in-row" component={FourInRowPage} />
               <Route path="/messages" component={MessagesPage} />
               <Route path="/images" component={ImagesPage} />
               {user?.isAdmin && <Route path="/admin" component={AdminPage} />}

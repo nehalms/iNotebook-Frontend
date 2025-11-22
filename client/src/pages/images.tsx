@@ -7,13 +7,17 @@ import {
   Focus,
   Sparkles,
   Download,
+  Palette,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+
+type ToolType = "enhance" | "corners" | "rotate" | "sharpen" | "background" | null;
 
 interface ImagesPageProps {
   onEnhance?: (file: File, brightness: number, contrast: number) => Promise<string>;
@@ -34,12 +38,14 @@ export default function ImagesPage({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [processedUrl, setProcessedUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [activeTool, setActiveTool] = useState<ToolType>(null);
 
   const [brightness, setBrightness] = useState(0);
   const [contrast, setContrast] = useState(0);
   const [cornerRadius, setCornerRadius] = useState(20);
   const [rotation, setRotation] = useState(0);
   const [sharpenAmount, setSharpenAmount] = useState(50);
+  const [backgroundPrompt, setBackgroundPrompt] = useState("");
 
   const { toast } = useToast();
 
@@ -140,6 +146,66 @@ export default function ImagesPage({
     }
   };
 
+  const handleGenerativeBackground = async () => {
+    if (!selectedFile || !backgroundPrompt.trim()) return;
+
+    setIsProcessing(true);
+    try {
+      const result = await onGenerativeBackground?.(selectedFile, backgroundPrompt);
+      setProcessedUrl(result || null);
+      toast({
+        title: "Background Generated",
+        description: "Your image background has been generated successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate background",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const tools = [
+    {
+      id: "enhance" as ToolType,
+      name: "Enhance",
+      icon: Wand2,
+      description: "Adjust brightness and contrast",
+      color: "text-primary",
+    },
+    {
+      id: "corners" as ToolType,
+      name: "Round Corners",
+      icon: Maximize,
+      description: "Add rounded corners",
+      color: "text-chart-2",
+    },
+    {
+      id: "rotate" as ToolType,
+      name: "Rotate",
+      icon: RotateCw,
+      description: "Rotate image by degrees",
+      color: "text-chart-3",
+    },
+    {
+      id: "sharpen" as ToolType,
+      name: "Sharpen",
+      icon: Focus,
+      description: "Increase image sharpness",
+      color: "text-chart-4",
+    },
+    {
+      id: "background" as ToolType,
+      name: "AI Background",
+      icon: Sparkles,
+      description: "Generate creative backgrounds",
+      color: "text-chart-5",
+    },
+  ];
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div>
@@ -234,21 +300,53 @@ export default function ImagesPage({
               <p className="text-sm text-muted-foreground text-center py-6">
                 Upload an image to access editing tools
               </p>
+            ) : !activeTool ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Select a tool to get started
+                </p>
+                {tools.map((tool) => {
+                  const Icon = tool.icon;
+                  return (
+                    <button
+                      key={tool.id}
+                      onClick={() => setActiveTool(tool.id)}
+                      className="w-full p-4 rounded-lg border-2 border-border hover:border-primary hover-elevate active-elevate-2 text-left transition-all"
+                      data-testid={`button-select-tool-${tool.id}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg bg-muted ${tool.color}`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold mb-1">{tool.name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {tool.description}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             ) : (
-              <Tabs defaultValue="enhance" className="w-full">
-                <TabsList className="w-full grid grid-cols-2">
-                  <TabsTrigger value="enhance">
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    Enhance
-                  </TabsTrigger>
-                  <TabsTrigger value="corners">
-                    <Maximize className="h-4 w-4 mr-2" />
-                    Round
-                  </TabsTrigger>
-                </TabsList>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-lg">
+                    {tools.find((t) => t.id === activeTool)?.name}
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActiveTool(null)}
+                    data-testid="button-back-to-tools"
+                  >
+                    ← Back
+                  </Button>
+                </div>
 
-                <TabsContent value="enhance" className="space-y-6">
-                  <div className="space-y-4">
+                {activeTool === "enhance" && (
+                  <>
                     <div className="space-y-2">
                       <Label>Brightness: {brightness}</Label>
                       <Slider
@@ -260,7 +358,6 @@ export default function ImagesPage({
                         data-testid="slider-brightness"
                       />
                     </div>
-
                     <div className="space-y-2">
                       <Label>Contrast: {contrast}</Label>
                       <Slider
@@ -272,7 +369,6 @@ export default function ImagesPage({
                         data-testid="slider-contrast"
                       />
                     </div>
-
                     <Button
                       onClick={handleEnhance}
                       disabled={isProcessing}
@@ -282,11 +378,11 @@ export default function ImagesPage({
                       <Wand2 className="h-5 w-5" />
                       {isProcessing ? "Processing..." : "Apply Enhancement"}
                     </Button>
-                  </div>
-                </TabsContent>
+                  </>
+                )}
 
-                <TabsContent value="corners" className="space-y-6">
-                  <div className="space-y-4">
+                {activeTool === "corners" && (
+                  <>
                     <div className="space-y-2">
                       <Label>Corner Radius: {cornerRadius}px</Label>
                       <Slider
@@ -298,7 +394,6 @@ export default function ImagesPage({
                         data-testid="slider-corner-radius"
                       />
                     </div>
-
                     <Button
                       onClick={handleRoundCorners}
                       disabled={isProcessing}
@@ -308,9 +403,83 @@ export default function ImagesPage({
                       <Maximize className="h-5 w-5" />
                       {isProcessing ? "Processing..." : "Round Corners"}
                     </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
+                  </>
+                )}
+
+                {activeTool === "rotate" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Rotation: {rotation}°</Label>
+                      <Slider
+                        value={[rotation]}
+                        onValueChange={([v]) => setRotation(v)}
+                        min={0}
+                        max={360}
+                        step={15}
+                        data-testid="slider-rotation"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleRotate}
+                      disabled={isProcessing}
+                      className="w-full h-12 gap-2"
+                      data-testid="button-apply-rotate"
+                    >
+                      <RotateCw className="h-5 w-5" />
+                      {isProcessing ? "Processing..." : "Rotate Image"}
+                    </Button>
+                  </>
+                )}
+
+                {activeTool === "sharpen" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Sharpen Amount: {sharpenAmount}%</Label>
+                      <Slider
+                        value={[sharpenAmount]}
+                        onValueChange={([v]) => setSharpenAmount(v)}
+                        min={0}
+                        max={100}
+                        step={5}
+                        data-testid="slider-sharpen"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleSharpen}
+                      disabled={isProcessing}
+                      className="w-full h-12 gap-2"
+                      data-testid="button-apply-sharpen"
+                    >
+                      <Focus className="h-5 w-5" />
+                      {isProcessing ? "Processing..." : "Sharpen Image"}
+                    </Button>
+                  </>
+                )}
+
+                {activeTool === "background" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Background Prompt</Label>
+                      <Textarea
+                        value={backgroundPrompt}
+                        onChange={(e) => setBackgroundPrompt(e.target.value)}
+                        placeholder="Describe the background you want to generate..."
+                        className="min-h-24"
+                        data-testid="input-background-prompt"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleGenerativeBackground}
+                      disabled={isProcessing || !backgroundPrompt.trim()}
+                      className="w-full h-12 gap-2"
+                      data-testid="button-apply-background"
+                    >
+                      <Sparkles className="h-5 w-5" />
+                      {isProcessing ? "Generating..." : "Generate Background"}
+                    </Button>
+                  </>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
