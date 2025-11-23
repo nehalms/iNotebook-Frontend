@@ -1,0 +1,254 @@
+import { Switch, Route, useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { logout as apiLogout, getState } from "@/lib/api/auth";
+import { queryClient } from "./lib/queryClient";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SecurityPin } from "@/components/security-pin";
+import NotFound from "@/pages/not-found";
+import LoginPage from "@/pages/login";
+import SignupPage from "@/pages/signup";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import VerifyOtpPage from "@/pages/verify-otp";
+import DashboardPage from "@/pages/dashboard";
+import NotesPage from "@/pages/notes";
+import TasksPage from "@/pages/tasks";
+import GamesPage from "@/pages/games";
+import TicTacToePage from "@/pages/tic-tac-toe";
+import FourInRowPage from "@/pages/four-in-row";
+import MessagesPage from "@/pages/messages";
+import ImagesPage from "@/pages/images";
+import AdminPage from "@/pages/admin";
+import ProfilePage from "@/pages/profile";
+import { useSessionStore } from "@/store/sessionStore";
+
+function AuthenticatedApp() {
+  const [location, setLocation] = useLocation();
+  const { isLoggedIn, email, isAdmin, isPinSet, isPinVerified, login: setLogin, logout: setLogout } = useSessionStore();
+  const [showSecurityPin, setShowSecurityPin] = useState(false);
+  const [checkingPin, setCheckingPin] = useState(true);
+
+  useEffect(() => {
+    const checkPinStatus = async () => {
+      try {
+        const state = await getState();
+        if (state.status === 1) {
+          setLogin({
+            email: state.data.email,
+            isAdmin: state.data.isAdminUser,
+            permissions: state.data.permissions,
+            isPinSet: state.data.isPinSet,
+          });
+
+          // Fetch secret key for encryption
+          if (!useSessionStore.getState().secretKey) {
+            await useSessionStore.getState().fetchAndSetSecretKey();
+          }
+
+          // Show security pin if not set or not verified
+          if (!state.data.isPinSet || !isPinVerified) {
+            setShowSecurityPin(true);
+          } else if (state.data.isPinSet && isPinVerified) {
+            setShowSecurityPin(false);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to get state:", error);
+        setLogout();
+        setLocation("/login");
+      } finally {
+        setCheckingPin(false);
+      }
+    };
+
+    if (isLoggedIn) {
+      checkPinStatus();
+    } else {
+      setCheckingPin(false);
+    }
+  }, [isLoggedIn, setLogin, setLogout, setLocation]);
+
+  // Watch for pin verification status changes
+  useEffect(() => {
+    if (isLoggedIn) {
+      if (isPinSet && isPinVerified) {
+        setShowSecurityPin(false);
+      } else if (!isPinSet || !isPinVerified) {
+        setShowSecurityPin(true);
+      }
+    }
+  }, [isLoggedIn, isPinSet, isPinVerified]);
+
+  const handleLogout = async () => {
+    try {
+      await apiLogout();
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+    setLogout();
+    setLocation("/login");
+  };
+
+  const handlePinSuccess = () => {
+    setShowSecurityPin(false);
+  };
+
+  const sidebarStyle = {
+    "--sidebar-width": "20rem",
+    "--sidebar-width-icon": "4rem",
+  };
+
+  const user = email ? { 
+    username: email, 
+    isAdmin 
+  } : null;
+
+  if (checkingPin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar user={user} onLogout={handleLogout} />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <header className="flex items-center justify-between p-4 border-b bg-background">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">iNotebook</span>
+                <span>/</span>
+                <span>
+                  {location === "/"
+                    ? "Dashboard"
+                    : location.substring(1).charAt(0).toUpperCase() +
+                      location.substring(2)}
+                </span>
+              </div>
+            </div>
+            <ThemeToggle />
+          </header>
+          <main className="flex-1 overflow-auto">
+            {showSecurityPin && false ? (
+              <div className="flex items-center justify-center h-full p-4">
+                <SecurityPin
+                  mode={isPinSet ? "verify" : "set"}
+                  onSuccess={handlePinSuccess}
+                />
+              </div>
+            ) : (
+              <Switch>
+                <Route path="/" component={DashboardPage} />
+                <Route path="/notes" component={NotesPage} />
+                <Route path="/tasks" component={TasksPage} />
+                <Route path="/games" component={GamesPage} />
+                <Route path="/games/tic-tac-toe" component={TicTacToePage} />
+                <Route path="/games/four-in-row" component={FourInRowPage} />
+                <Route path="/messages" component={MessagesPage} />
+                <Route path="/images" component={ImagesPage} />
+                <Route path="/profile" component={ProfilePage} />
+                {isAdmin && <Route path="/admin" component={AdminPage} />}
+                <Route component={NotFound} />
+              </Switch>
+            )}
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
+
+function Router() {
+  const { isLoggedIn, login: setLogin } = useSessionStore();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Check authentication status on mount only
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const state = await getState();
+        if (state.status === 1) {
+          setLogin({
+            email: state.data.email,
+            isAdmin: state.data.isAdminUser,
+            permissions: state.data.permissions,
+            isPinSet: state.data.isPinSet,
+          });
+        } else {
+          useSessionStore.getState().logout();
+        }
+      } catch (error) {
+        useSessionStore.getState().logout();
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+    checkAuth();
+  }, [setLogin]);
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoggedIn) {
+    return <AuthenticatedApp />;
+  }
+
+  return (
+    <Switch>
+      <Route path="/login">
+        <LoginPage onLogin={async () => {
+          // Login handled by login page via session store
+        }} />
+      </Route>
+      <Route path="/signup">
+        <SignupPage onSignup={async () => {
+          // Signup handled by signup page via session store
+        }} />
+      </Route>
+      <Route path="/forgot-password">
+        <ForgotPasswordPage />
+      </Route>
+      <Route path="/verify-otp">
+        <VerifyOtpPage />
+      </Route>
+      <Route>
+        <LoginPage onLogin={async () => {}} />
+      </Route>
+    </Switch>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="light">
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;
