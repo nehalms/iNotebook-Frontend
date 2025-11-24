@@ -525,26 +525,28 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6">
-          <TabsTrigger value="users" data-testid="tab-users">
-            Users
-          </TabsTrigger>
-          <TabsTrigger value="games" data-testid="tab-game-stats">
-            Game Stats
-          </TabsTrigger>
-          <TabsTrigger value="permissions" data-testid="tab-permissions">
-            Permissions
-          </TabsTrigger>
-          <TabsTrigger value="analytics" data-testid="tab-analytics">
-            Analytics
-          </TabsTrigger>
-          <TabsTrigger value="live" data-testid="tab-live-users">
-            Live Users
-          </TabsTrigger>
-          <TabsTrigger value="health" data-testid="tab-health">
-            Services Health
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-full min-w-max sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 h-auto">
+            <TabsTrigger value="users" data-testid="tab-users" className="whitespace-nowrap">
+              Users
+            </TabsTrigger>
+            <TabsTrigger value="games" data-testid="tab-game-stats" className="whitespace-nowrap">
+              Game Stats
+            </TabsTrigger>
+            <TabsTrigger value="permissions" data-testid="tab-permissions" className="whitespace-nowrap">
+              Permissions
+            </TabsTrigger>
+            <TabsTrigger value="analytics" data-testid="tab-analytics" className="whitespace-nowrap">
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="live" data-testid="tab-live-users" className="whitespace-nowrap">
+              Live Users
+            </TabsTrigger>
+            <TabsTrigger value="health" data-testid="tab-health" className="whitespace-nowrap">
+              Services Health
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="users" className="space-y-4">
           <Card className="rounded-xl">
