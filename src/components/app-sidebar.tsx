@@ -8,8 +8,11 @@ import {
   Shield,
   LogOut,
   User,
+  Calendar,
+  Newspaper,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { useSidebar } from "@/components/ui/sidebar";
 import {
   Sidebar,
   SidebarContent,
@@ -31,7 +34,14 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ user, onLogout }: AppSidebarProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   const menuItems = [
     { title: "Dashboard", url: "/", icon: Home, testId: "link-dashboard" },
@@ -45,6 +55,8 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
       testId: "link-messages",
     },
     { title: "Images", url: "/images", icon: Image, testId: "link-images" },
+    { title: "Calendar", url: "/calendar", icon: Calendar, testId: "link-calendar" },
+    { title: "News", url: "/news", icon: Newspaper, testId: "link-news" },
   ];
 
   const adminItems = user?.isAdmin
@@ -81,7 +93,7 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
                     isActive={location === item.url}
                     data-testid={item.testId}
                   >
-                    <Link href={item.url}>
+                    <Link href={item.url} onClick={handleLinkClick}>
                       <item.icon className="h-5 w-5" />
                       <span>{item.title}</span>
                     </Link>
@@ -106,7 +118,7 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
                       isActive={location === item.url}
                       data-testid={item.testId}
                     >
-                      <Link href={item.url}>
+                      <Link href={item.url} onClick={handleLinkClick}>
                         <item.icon className="h-5 w-5" />
                         <span>{item.title}</span>
                       </Link>
@@ -121,40 +133,34 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
 
       <SidebarFooter className="p-4 space-y-2">
         {user && (
-          <>
-            <div className="flex items-center gap-3 p-2 rounded-lg">
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user.username.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user.username}</p>
-                <p className="text-xs text-muted-foreground">
-                  {user.isAdmin ? "Administrator" : "User"}
-                </p>
+          <div className="space-y-2">
+            <Link href="/profile" onClick={handleLinkClick}>
+              <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors">
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    {user.username.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{user.username}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {user.isAdmin ? "Administrator" : "User"}
+                  </p>
+                </div>
+                <User className="h-4 w-4 text-muted-foreground" />
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onLogout}
-                data-testid="button-logout"
-                className="h-9 w-9"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-            <SidebarMenuButton
-              asChild
-              isActive={location === "/profile"}
-              className="w-full"
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLogout}
+              data-testid="button-logout"
+              className="w-full justify-start gap-2"
             >
-              <Link href="/profile">
-                <User className="h-5 w-5" />
-                <span>Profile</span>
-              </Link>
-            </SidebarMenuButton>
-          </>
+              <LogOut className="h-4 w-4" />
+              <span>Logout</span>
+            </Button>
+          </div>
         )}
       </SidebarFooter>
     </Sidebar>

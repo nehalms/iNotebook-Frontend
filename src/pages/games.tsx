@@ -1,9 +1,15 @@
+import { useEffect, useState } from "react";
+import PermissionDenied from "./permission-denied";
 import { Trophy, Play, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { getApiUrl } from "@/lib/api/config";
+import { handleApiError, type ApiErrorResponse } from "@/lib/utils/api-error-handler";
+import { useSessionStore } from "@/store/sessionStore";
 
 interface GameStats {
   gameName: string;
@@ -14,15 +20,15 @@ interface GameStats {
   bestScore: number;
 }
 
-interface GamesPageProps {
-  gameStats?: GameStats[];
-  isLoading?: boolean;
-}
-
-export default function GamesPage({
-  gameStats = [],
-  isLoading,
-}: GamesPageProps) {
+export default function GamesPage() {
+  const { isLoggedIn, permissions } = useSessionStore();
+  
+  if (!permissions.includes("games")) {
+    return <PermissionDenied />;
+  }
+  const { toast } = useToast();
+  const [gameStats, setGameStats] = useState<GameStats[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const games = [
     {
       id: "tic-tac-toe",
@@ -41,6 +47,77 @@ export default function GamesPage({
       path: "/games/four-in-row",
     },
   ];
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setIsLoading(false);
+      return;
+    }
+    fetchGameStats();
+  }, [isLoggedIn]);
+
+  const fetchGameStats = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(getApiUrl("game/getStats"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (response.status === 401) {
+        const error: ApiErrorResponse = await response.json();
+        if (handleApiError(response, error)) {
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      const json = await response.json();
+      const data = json.stats;
+
+      if (data) {
+        const stats: GameStats[] = [];
+        
+        // Tic-Tac-Toe stats
+        if (data.tttStats) {
+          stats.push({
+            gameName: "tic-tac-toe",
+            totalPlayed: data.tttStats.played || 0,
+            wins: data.tttStats.won || 0,
+            losses: data.tttStats.lost || 0,
+            draws: 0,
+            bestScore: data.tttStats.won || 0,
+          });
+        }
+
+        // Connect4 stats
+        if (data.frnRowStats) {
+          stats.push({
+            gameName: "four-in-row",
+            totalPlayed: data.frnRowStats.played || 0,
+            wins: data.frnRowStats.won || 0,
+            losses: data.frnRowStats.lost || 0,
+            draws: 0,
+            bestScore: data.frnRowStats.won || 0,
+          });
+        }
+
+        setGameStats(stats);
+      }
+    } catch (err) {
+      console.error("Error fetching game stats:", err);
+      toast({
+        title: "Error",
+        description: "Failed to fetch game statistics",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getGameStats = (gameName: string) => {
     return gameStats.find((s) => s.gameName === gameName);
@@ -99,8 +176,18 @@ export default function GamesPage({
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Best Score</span>
-                        <Badge variant="secondary">{stats.bestScore}</Badge>
+                        <span className="text-muted-foreground">Losses</span>
+                        <span className="font-medium text-destructive">
+                          {stats.losses}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Win Rate</span>
+                        <Badge variant="secondary">
+                          {stats.totalPlayed > 0
+                            ? Math.round((stats.wins / stats.totalPlayed) * 100)
+                            : 0}%
+                        </Badge>
                       </div>
                     </div>
                   ) : (

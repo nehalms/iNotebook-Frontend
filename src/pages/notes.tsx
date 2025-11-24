@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSessionStore } from "@/store/sessionStore";
+import PermissionDenied from "./permission-denied";
 import { Plus, Search, Filter, Edit, Trash2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +26,12 @@ import { useNotes } from "@/hooks/use-notes";
 import type { Note } from "@/types/schema";
 
 export default function NotesPage() {
+  const { permissions } = useSessionStore();
+  
+  if (!permissions.includes("notes")) {
+    return <PermissionDenied />;
+  }
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);

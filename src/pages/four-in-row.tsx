@@ -584,12 +584,13 @@ export default function FourInRowPage() {
 
   const renderSquare = (row: number, col: number) => {
     const isFilled = board[row][col];
+    const isWinningCell = isFilled === 10 || isFilled === 20;
     let color = "white";
     if (isFilled === 1) {
       color = player === "X" ? selectedColor || "red" : "red";
     } else if (isFilled === 2) {
       color = player === "O" ? selectedColor || "yellow" : "yellow";
-    } else if (isFilled === 10 || isFilled === 20) {
+    } else if (isWinningCell) {
       color = isFilled === 10
         ? player === "X" ? selectedColor || "red" : "red"
         : player === "O" ? selectedColor || "yellow" : "yellow";
@@ -598,7 +599,11 @@ export default function FourInRowPage() {
     return (
       <div
         key={`${row}-${col}`}
-        className="w-12 h-12 rounded-full border-2 border-border cursor-pointer hover:border-primary transition-all flex-shrink-0 relative"
+        className={`w-12 h-12 rounded-full border-2 cursor-pointer hover:border-primary transition-all flex-shrink-0 relative ${
+          isWinningCell 
+            ? "border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]" 
+            : "border-border"
+        }`}
         onClick={() => handleClick(col)}
         style={{
           backgroundColor: "white",
@@ -666,7 +671,7 @@ export default function FourInRowPage() {
                   )}
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="overflow-x-auto">
                 {player !== "" ? (
                   <div className="space-y-4">
                     <div className="text-center">
@@ -674,11 +679,11 @@ export default function FourInRowPage() {
                         You are player {player} | Current Turn: {currTurn}
                       </Badge>
                     </div>
-                    <div className="flex justify-center p-6 rounded-xl bg-primary/5">
-                      <div className="inline-block">
-                        <div className="space-y-1">
+                    <div className="flex justify-center p-2 sm:p-3 md:p-4 lg:p-6 rounded-xl bg-primary/5 w-full min-w-0 overflow-x-auto">
+                      <div className="inline-block min-w-0">
+                        <div className="space-y-0.5 sm:space-y-1">
                           {board.map((row, rowIndex) => (
-                            <div key={rowIndex} className="flex gap-1 justify-center">
+                            <div key={rowIndex} className="flex gap-0.5 sm:gap-1 md:gap-1.5 justify-center flex-nowrap">
                               {row.map((_, colIndex) => renderSquare(rowIndex, colIndex))}
                             </div>
                           ))}

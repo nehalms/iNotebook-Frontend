@@ -88,8 +88,8 @@ export function OtpVerification({
   return (
     <div className="space-y-4">
       <label className="text-sm font-medium">{message}</label>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-2">
+      <div className="space-y-3">
+        <div className="flex gap-2 justify-center">
           {otp.map((value, index) => (
             <Input
               key={index}
@@ -106,22 +106,24 @@ export function OtpVerification({
             />
           ))}
         </div>
-        {isLoading ? (
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleResend}
-            disabled={isResending}
-            className="gap-2"
-            data-testid="button-resend-otp"
-          >
-            <Mail className="h-4 w-4" />
-            {isResending ? "Sending..." : "Resend"}
-          </Button>
-        )}
+        <div className="flex justify-center">
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleResend}
+              disabled={isResending}
+              className="gap-2"
+              data-testid="button-resend-otp"
+            >
+              <Mail className="h-4 w-4" />
+              {isResending ? "Sending..." : "Resend"}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,0 +1,347 @@
+import { getApiUrl } from "./config";
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  date: string;
+  isActive: boolean;
+  notesCount: number;
+  tasksCount: number;
+  userId: string;
+  lastLoggedOn?: string;
+}
+
+export interface AdminStats {
+  usersCount: number;
+  notesCount: number;
+  tasksCount: number;
+  loginHistoryCount: number;
+  userHistoryCount: number;
+}
+
+export interface GameStat {
+  id: number;
+  name: string;
+  userId: string;
+  ttt_played: number;
+  ttt_won: number;
+  ttt_lost: number;
+  con4_played: number;
+  con4_won: number;
+  con4_lost: number;
+  statsId: string;
+}
+
+export interface PermissionUser {
+  id: number;
+  name: string;
+  email: string;
+  userId: string;
+  notes: boolean;
+  tasks: boolean;
+  images: boolean;
+  games: boolean;
+  messages: boolean;
+  news: boolean;
+  calendar: boolean;
+}
+
+export interface AnalyticsData {
+  xAxisDates: string[];
+  loginData: number[];
+  onlineUsersData: number[];
+  colors: string[];
+}
+
+export interface GetUsersResponse {
+  users: AdminUser[];
+  usersCount: number;
+  notesCount: number;
+  tasksCount: number;
+  loginHistoryCount: number;
+  userHistoryCount: number;
+  error?: string;
+}
+
+export interface GetGameStatsResponse {
+  status: string;
+  stats: GameStat[];
+  error?: string;
+}
+
+export interface GetPermissionsResponse {
+  users: PermissionUser[];
+  error?: string;
+}
+
+export interface GetAnalyticsResponse {
+  xAxisDates: string[];
+  loginData: number[];
+  onlineUsersData: number[];
+  colors: string[];
+  error?: string;
+}
+
+export const getUsers = async (): Promise<GetUsersResponse> => {
+  try {
+    const response = await fetch(getApiUrl("getData/users"), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (response.status === 401) {
+      return { users: [], usersCount: 0, notesCount: 0, tasksCount: 0, loginHistoryCount: 0, userHistoryCount: 0, error: "Unauthorized" };
+    }
+
+    if (response.status === 403) {
+      return { users: [], usersCount: 0, notesCount: 0, tasksCount: 0, loginHistoryCount: 0, userHistoryCount: 0, error: "Permission denied" };
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      return { users: [], usersCount: 0, notesCount: 0, tasksCount: 0, loginHistoryCount: 0, userHistoryCount: 0, error: data.error };
+    }
+
+    return {
+      users: data.users || [],
+      usersCount: data.usersCount || 0,
+      notesCount: data.notesCount || 0,
+      tasksCount: data.tasksCount || 0,
+      loginHistoryCount: data.loginHistoryCount || 0,
+      userHistoryCount: data.userHistoryCount || 0,
+    };
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return { users: [], usersCount: 0, notesCount: 0, tasksCount: 0, loginHistoryCount: 0, userHistoryCount: 0, error: "Failed to fetch users" };
+  }
+};
+
+export const getGameStats = async (): Promise<GetGameStatsResponse> => {
+  try {
+    const response = await fetch(getApiUrl("getData/gamestats"), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (response.status === 401) {
+      return { status: "error", stats: [], error: "Unauthorized" };
+    }
+
+    if (response.status === 403) {
+      return { status: "error", stats: [], error: "Permission denied" };
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      return { status: "error", stats: [], error: data.error };
+    }
+
+    if (data.status === "success" && data.stats) {
+      const stats = data.stats.map((stat: any) => ({
+        id: stat.id,
+        name: stat.name,
+        userId: stat.userId,
+        ttt_played: stat.tttStats?.played || 0,
+        ttt_won: stat.tttStats?.won || 0,
+        ttt_lost: stat.tttStats?.lost || 0,
+        con4_played: stat.con4Stats?.played || 0,
+        con4_won: stat.con4Stats?.won || 0,
+        con4_lost: stat.con4Stats?.lost || 0,
+        statsId: stat.statsId || "",
+      }));
+
+      return { status: "success", stats };
+    }
+
+    return { status: "error", stats: [], error: "Failed to fetch game stats" };
+  } catch (error) {
+    console.error("Error fetching game stats:", error);
+    return { status: "error", stats: [], error: "Failed to fetch game stats" };
+  }
+};
+
+export const deleteGameStats = async (statsId: string): Promise<{ success: boolean; msg?: string; error?: string }> => {
+  try {
+    const response = await fetch(getApiUrl(`getData/delstats/${statsId}`), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+
+    if (data.success === false) {
+      return { success: false, error: data.msg || "Failed to delete stats" };
+    }
+
+    return { success: true, msg: data.msg || "Stats deleted successfully" };
+  } catch (error) {
+    console.error("Error deleting game stats:", error);
+    return { success: false, error: "Failed to delete stats" };
+  }
+};
+
+export const getPermissions = async (): Promise<GetPermissionsResponse> => {
+  try {
+    const response = await fetch(getApiUrl("perm/users"), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (response.status === 401) {
+      return { users: [], error: "Unauthorized" };
+    }
+
+    if (response.status === 403) {
+      return { users: [], error: "Permission denied" };
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      return { users: [], error: data.error };
+    }
+
+    return { users: data.users || [] };
+  } catch (error) {
+    console.error("Error fetching permissions:", error);
+    return { users: [], error: "Failed to fetch permissions" };
+  }
+};
+
+export const togglePermission = async (
+  userId: string,
+  permissionIndex: number,
+  enable: boolean
+): Promise<{ status: number; msg?: string; error?: string }> => {
+  try {
+    const type = enable ? "set" : "reset";
+    const response = await fetch(getApiUrl(`perm/${type}/${userId}/${permissionIndex}`), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      return { status: 0, error: data.msg || data.error };
+    }
+
+    return { status: data.status || 1, msg: data.msg };
+  } catch (error) {
+    console.error("Error toggling permission:", error);
+    return { status: 0, error: "Failed to toggle permission" };
+  }
+};
+
+export const toggleAllPermissions = async (
+  userId: string,
+  action: "give all" | "remove all"
+): Promise<{ status: number; msg?: string; error?: string }> => {
+  try {
+    // Backend uses 'setall' for giving all permissions and 'resetall' for removing all
+    const endpoint = action === "give all" ? "setall" : "resetall";
+    const response = await fetch(getApiUrl(`perm/${endpoint}/${userId}`), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      return { status: 0, error: data.msg || data.error };
+    }
+
+    return { status: data.status || 1, msg: data.msg };
+  } catch (error) {
+    console.error("Error toggling all permissions:", error);
+    return { status: 0, error: "Failed to toggle permissions" };
+  }
+};
+
+export const deleteUser = async (userId: string): Promise<{ success: boolean; msg?: string; error?: string }> => {
+  try {
+    const response = await fetch(getApiUrl(`getData/deluser/${userId}`), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+
+    if (data.success === false) {
+      return { success: false, error: data.msg || "Failed to delete user" };
+    }
+
+    return { success: true, msg: data.msg || "User deleted successfully" };
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    return { success: false, error: "Failed to delete user" };
+  }
+};
+
+export const getAnalytics = async (
+  startDate: string,
+  endDate: string,
+  reqType: "both" | "user" | "online" = "both"
+): Promise<GetAnalyticsResponse> => {
+  try {
+    const response = await fetch(
+      getApiUrl(`getData/graphData?reqType=${reqType}&startDate=${startDate}&endDate=${endDate}`),
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      }
+    );
+
+    if (response.status === 401) {
+      return { xAxisDates: [], loginData: [], onlineUsersData: [], colors: [], error: "Unauthorized" };
+    }
+
+    if (response.status === 403) {
+      return { xAxisDates: [], loginData: [], onlineUsersData: [], colors: [], error: "Permission denied" };
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      return { xAxisDates: [], loginData: [], onlineUsersData: [], colors: [], error: data.error };
+    }
+
+    return {
+      xAxisDates: data.xAxisDates || [],
+      loginData: data.loginData || [],
+      onlineUsersData: data.onlineUsersData || [],
+      colors: data.colors || [],
+    };
+  } catch (error) {
+    console.error("Error fetching analytics:", error);
+    return { xAxisDates: [], loginData: [], onlineUsersData: [], colors: [], error: "Failed to fetch analytics" };
+  }
+};
+

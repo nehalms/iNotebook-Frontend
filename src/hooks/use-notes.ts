@@ -13,7 +13,7 @@ export function useNotes() {
     queryKey: ["notes"],
     queryFn: fetchAllNotes,
     retry: 1,
-    enabled: true,
+    enabled: isPinSet && isPinVerified, 
   });
 
   const createMutation = useMutation({

@@ -17,10 +17,12 @@ interface SecurityPinProps {
 export function SecurityPin({ mode, onSuccess, onCancel }: SecurityPinProps) {
   const [pin, setPin] = useState<string[]>(new Array(6).fill(""));
   const [confirmPin, setConfirmPin] = useState<string[]>(new Array(6).fill(""));
+  const [prevPin, setPrevPin] = useState<string[]>(new Array(6).fill(""));
   const [step, setStep] = useState<"enter" | "confirm" | "forgot" | "verify">(mode === "set" ? "enter" : "verify");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isForgotMode, setIsForgotMode] = useState(false);
+  const [isResetMode, setIsResetMode] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const confirmInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { toast } = useToast();
@@ -57,9 +59,10 @@ export function SecurityPin({ mode, onSuccess, onCancel }: SecurityPinProps) {
         handleConfirmPin(newPin);
       } else if (step === "verify") {
         handleVerifyPin(newPin.join(""));
-      } else if (step === "enter" && mode === "set") {
-        // Move to confirm step
+      } else if (step === "enter" && (mode === "set" || isResetMode)) {
+        setPrevPin(newPin);
         setStep("confirm");
+        setPin(new Array(6).fill(""));
         setTimeout(() => confirmInputRefs.current[0]?.focus(), 100);
       }
     }
@@ -103,15 +106,16 @@ export function SecurityPin({ mode, onSuccess, onCancel }: SecurityPinProps) {
     }
   };
 
-  const handleConfirmPin = (confirmPinArray: string[]) => {
-    if (pin.join("") === confirmPinArray.join("")) {
-      handleSetPin(pin.join(""));
+  const handleConfirmPin = async (confirmPinArray: string[]) => {
+    if (prevPin.join("") === confirmPinArray.join("")) {
+      await handleSetPin(prevPin.join(""));
     } else {
       setError("Pin does not match. Please try again.");
       setPin(new Array(6).fill(""));
       setConfirmPin(new Array(6).fill(""));
+      setPrevPin(new Array(6).fill(""));
       setStep("enter");
-      inputRefs.current[0]?.focus();
+      setTimeout(() => inputRefs.current[0]?.focus(), 100);
     }
   };
 
@@ -122,6 +126,7 @@ export function SecurityPin({ mode, onSuccess, onCancel }: SecurityPinProps) {
       const response = await setSecurityPin(pinCode);
       if (response.status === 1) {
         useSessionStore.getState().setPinVerified(true);
+        setIsResetMode(false);
         toast({
           title: "Success",
           description: "Security pin set successfully",
@@ -129,13 +134,19 @@ export function SecurityPin({ mode, onSuccess, onCancel }: SecurityPinProps) {
         onSuccess();
       } else {
         setError(response.error || "Failed to set pin");
+        setPin(new Array(6).fill(""));
+        setConfirmPin(new Array(6).fill(""));
+        setPrevPin(new Array(6).fill(""));
+        setStep("enter");
+        setTimeout(() => inputRefs.current[0]?.focus(), 100);
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to set pin");
       setPin(new Array(6).fill(""));
       setConfirmPin(new Array(6).fill(""));
+      setPrevPin(new Array(6).fill(""));
       setStep("enter");
-      inputRefs.current[0]?.focus();
+      setTimeout(() => inputRefs.current[0]?.focus(), 100);
     } finally {
       setIsLoading(false);
     }
@@ -189,12 +200,16 @@ export function SecurityPin({ mode, onSuccess, onCancel }: SecurityPinProps) {
 
       if (response.success && response.verified) {
         setIsForgotMode(false);
+        setIsResetMode(true); // Set reset mode flag
         setStep("enter");
         setPin(new Array(6).fill(""));
+        setConfirmPin(new Array(6).fill(""));
+        setPrevPin(new Array(6).fill(""));
         toast({
           title: "OTP Verified",
           description: "Please set a new security pin",
         });
+        setTimeout(() => inputRefs.current[0]?.focus(), 100);
       } else if (response.status === 0) {
         await handleForgotPin();
         toast({
@@ -224,15 +239,15 @@ export function SecurityPin({ mode, onSuccess, onCancel }: SecurityPinProps) {
   };
 
   const getTitle = () => {
-    if (isForgotMode) return "Enter OTP to reset pin";
+    if (isForgotMode && step === "forgot") return "Enter OTP to reset pin";
     if (step === "confirm") return "Confirm your Security pin";
-    if (mode === "set") return "Please set the Security pin to secure your data";
+    if (mode === "set" || isResetMode) return "Please set the Security pin to secure your data";
     return "Enter the Security pin";
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="bg-card border rounded-2xl shadow-lg p-8 max-w-md w-full mx-4">
+    <div className="flex items-center justify-center min-h-screen bg-background/80 backdrop-blur-sm p-1">
+      <div className="bg-card border rounded-2xl shadow-lg p-4 sm:p-8 max-w-md w-full">
         <div className="space-y-6">
           <div className="text-center space-y-2">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
@@ -260,46 +275,67 @@ export function SecurityPin({ mode, onSuccess, onCancel }: SecurityPinProps) {
                 </div>
               ) : !isForgotMode ? (
                 <div className="space-y-4">
-                  <div className="flex gap-2 justify-center">
-                    {pin.map((value, index) => (
-                      <Input
-                        key={index}
-                        ref={(el) => (inputRefs.current[index] = el)}
-                        type="password"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={value}
-                        onChange={(e) => handleChange(e.target, index, false)}
-                        onKeyDown={(e) => handleKeyDown(e, index, false)}
-                        className="h-14 w-14 text-center text-xl font-semibold"
-                        disabled={isLoading}
-                        data-testid={`pin-input-${index}`}
-                      />
-                    ))}
-                  </div>
-
-                  {step === "confirm" && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-center block">
-                        Confirm Pin
-                      </label>
-                      <div className="flex gap-2 justify-center">
-                        {confirmPin.map((value, index) => (
-                          <Input
-                            key={index}
-                            ref={(el) => (confirmInputRefs.current[index] = el)}
-                            type="password"
-                            inputMode="numeric"
-                            maxLength={1}
-                            value={value}
-                            onChange={(e) => handleChange(e.target, index, true)}
-                            onKeyDown={(e) => handleKeyDown(e, index, true)}
-                            className="h-14 w-14 text-center text-xl font-semibold"
-                            disabled={isLoading}
-                            data-testid={`confirm-pin-input-${index}`}
-                          />
-                        ))}
+                  {step === "confirm" ? (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-center block text-muted-foreground">
+                          Entered Pin
+                        </label>
+                        <div className="flex gap-1 sm:gap-2 justify-center flex-wrap">
+                          {prevPin.map((value, index) => (
+                            <Input
+                              key={index}
+                              type="password"
+                              inputMode="numeric"
+                              maxLength={1}
+                              value={value}
+                              disabled
+                              readOnly
+                              className="h-10 w-10 sm:h-14 sm:w-14 text-center text-lg sm:text-xl font-semibold bg-muted opacity-60"
+                            />
+                          ))}
+                        </div>
                       </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-center block">
+                          Confirm Pin
+                        </label>
+                        <div className="flex gap-1 sm:gap-2 justify-center flex-wrap">
+                          {confirmPin.map((value, index) => (
+                            <Input
+                              key={index}
+                              ref={(el) => (confirmInputRefs.current[index] = el)}
+                              type="password"
+                              inputMode="numeric"
+                              maxLength={1}
+                              value={value}
+                              onChange={(e) => handleChange(e.target, index, true)}
+                              onKeyDown={(e) => handleKeyDown(e, index, true)}
+                              className="h-10 w-10 sm:h-14 sm:w-14 text-center text-lg sm:text-xl font-semibold"
+                              disabled={isLoading}
+                              data-testid={`confirm-pin-input-${index}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex gap-1 sm:gap-2 justify-center flex-wrap">
+                      {pin.map((value, index) => (
+                        <Input
+                          key={index}
+                          ref={(el) => (inputRefs.current[index] = el)}
+                          type="password"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={value}
+                          onChange={(e) => handleChange(e.target, index, false)}
+                          onKeyDown={(e) => handleKeyDown(e, index, false)}
+                          className="h-10 w-10 sm:h-14 sm:w-14 text-center text-lg sm:text-xl font-semibold"
+                          disabled={isLoading}
+                          data-testid={`pin-input-${index}`}
+                        />
+                      ))}
                     </div>
                   )}
 

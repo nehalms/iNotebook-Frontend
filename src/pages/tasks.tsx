@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSessionStore } from "@/store/sessionStore";
+import PermissionDenied from "./permission-denied";
 import {
   Plus,
   Edit,
@@ -17,6 +19,12 @@ import { useTasks } from "@/hooks/use-tasks";
 import type { Task } from "@/types/schema";
 
 export default function TasksPage() {
+  const { permissions } = useSessionStore();
+  
+  if (!permissions.includes("tasks")) {
+    return <PermissionDenied />;
+  }
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);

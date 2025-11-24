@@ -52,7 +52,6 @@ export async function fetchAllNotes(): Promise<Note[]> {
         title = decryptAES(title, secretKey);
         description = decryptAES(description, secretKey);
         tag = decryptAES(tag, secretKey);
-        console.log(title, description, tag);
       } catch (error) {
         console.error('Decryption error:', error);
       }

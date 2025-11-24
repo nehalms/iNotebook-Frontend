@@ -25,13 +25,65 @@ import MessagesPage from "@/pages/messages";
 import ImagesPage from "@/pages/images";
 import AdminPage from "@/pages/admin";
 import ProfilePage from "@/pages/profile";
+import CalendarPage from "@/pages/calendar";
+import NewsPage from "@/pages/news";
 import { useSessionStore } from "@/store/sessionStore";
+import { getApiUrl } from "@/lib/api/config";
 
 function AuthenticatedApp() {
   const [location, setLocation] = useLocation();
   const { isLoggedIn, email, isAdmin, isPinSet, isPinVerified, login: setLogin, logout: setLogout } = useSessionStore();
   const [showSecurityPin, setShowSecurityPin] = useState(false);
   const [checkingPin, setCheckingPin] = useState(true);
+
+  useEffect(() => {
+    if (!isLoggedIn || isAdmin) return;
+
+    const getOrCreateDeviceId = () => {
+      let id = sessionStorage.getItem('deviceId');
+      if (!id) {
+        // Generate a simple UUID-like string
+        id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+        sessionStorage.setItem('deviceId', id);
+      }
+      return id;
+    };
+
+    const sendHeartBeat = async () => {
+      const id = getOrCreateDeviceId();
+      try {
+        const response = await fetch(getApiUrl(`heartbeat/${id}`), {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await response.json();
+        if (data.status === 0) {
+          return;
+        }
+      } catch (error) {
+        console.error('Error in heartbeat:', error);
+      }
+    };
+
+    // Send initial heartbeat
+    sendHeartBeat();
+
+    // Set up interval to send heartbeat every 25 seconds
+    const heartBeatInterval = setInterval(() => {
+      sendHeartBeat();
+    }, 25000);
+
+    return () => {
+      clearInterval(heartBeatInterval);
+    };
+  }, [isLoggedIn, isAdmin]);
 
   useEffect(() => {
     const checkPinStatus = async () => {
@@ -71,7 +123,7 @@ function AuthenticatedApp() {
     } else {
       setCheckingPin(false);
     }
-  }, [isLoggedIn, setLogin, setLogout, setLocation]);
+  }, []);
 
   // Watch for pin verification status changes
   useEffect(() => {
@@ -99,7 +151,7 @@ function AuthenticatedApp() {
   };
 
   const sidebarStyle = {
-    "--sidebar-width": "20rem",
+    "--sidebar-width": "16rem",
     "--sidebar-width-icon": "4rem",
   };
 
@@ -141,8 +193,8 @@ function AuthenticatedApp() {
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto">
-            {showSecurityPin && false ? (
-              <div className="flex items-center justify-center h-full p-4">
+            {showSecurityPin ? (
+              <div className="flex items-center justify-center h-full p-1">
                 <SecurityPin
                   mode={isPinSet ? "verify" : "set"}
                   onSuccess={handlePinSuccess}
@@ -158,6 +210,8 @@ function AuthenticatedApp() {
                 <Route path="/games/four-in-row" component={FourInRowPage} />
                 <Route path="/messages" component={MessagesPage} />
                 <Route path="/images" component={ImagesPage} />
+                <Route path="/calendar" component={CalendarPage} />
+                <Route path="/news" component={NewsPage} />
                 <Route path="/profile" component={ProfilePage} />
                 {isAdmin && <Route path="/admin" component={AdminPage} />}
                 <Route component={NotFound} />

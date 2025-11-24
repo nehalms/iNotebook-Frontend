@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { useSessionStore } from "@/store/sessionStore";
+import PermissionDenied from "./permission-denied";
 import {
   Upload,
   Wand2,
@@ -28,6 +31,13 @@ import { saveAs } from "file-saver";
 type ToolType = "enhance" | "corners" | "rotate" | "sharpen" | "background" | null;
 
 export default function ImagesPage() {
+  const { permissions } = useSessionStore();
+  const [location] = useLocation();
+  
+  if (!permissions.includes("images")) {
+    return <PermissionDenied />;
+  }
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [processedUrl, setProcessedUrl] = useState<string | null>(null);
@@ -44,10 +54,13 @@ export default function ImagesPage() {
 
   const { toast } = useToast();
 
-  // Set loading state when processedUrl changes
   useEffect(() => {
     if (processedUrl && !isProcessing) {
       setIsImageLoading(true);
+      const img = new Image();
+      img.onload = () => setIsImageLoading(false);
+      img.onerror = () => setIsImageLoading(false);
+      img.src = processedUrl;
     }
   }, [processedUrl, isProcessing]);
 
@@ -236,8 +249,17 @@ export default function ImagesPage() {
                           src={processedUrl}
                           alt="Processed"
                           className="w-full h-full object-contain"
-                          onLoad={() => setIsImageLoading(false)}
-                          onError={() => setIsImageLoading(false)}
+                          onLoad={() => {
+                            setIsImageLoading(false);
+                          }}
+                          onError={() => {
+                            setIsImageLoading(false);
+                            toast({
+                              title: "Error",
+                              description: "Failed to load processed image",
+                              variant: "destructive",
+                            });
+                          }}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground">

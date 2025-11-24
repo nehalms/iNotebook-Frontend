@@ -294,10 +294,16 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               <Button
                 type="submit"
                 className="w-full h-12 text-base"
-                disabled={isLoading}
+                disabled={isLoading || isSendingOtp || isVerifyingOtp || (isAdminUser && !isAdminVerified)}
                 data-testid="button-login"
               >
-                {isLoading ? "Signing in..." : "Sign In"}
+                { 
+                  isLoading ? "Signing in..." : 
+                  isSendingOtp ? "Sending OTP..." :
+                  isVerifyingOtp ? "Verifying..." :
+                  isAdminUser && !isAdminVerified ? "Verify Admin Passkey" : 
+                  "Sign In"
+                }
               </Button>
             </form>
           </Form>

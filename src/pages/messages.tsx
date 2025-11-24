@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSessionStore } from "@/store/sessionStore";
+import PermissionDenied from "./permission-denied";
 import { Lock, Unlock, Send, Copy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,12 @@ import type { Message } from "@/types/schema";
 import { format } from "date-fns";
 
 export default function MessagesPage() {
+  const { permissions } = useSessionStore();
+  
+  if (!permissions.includes("messages")) {
+    return <PermissionDenied />;
+  }
+
   const [mode, setMode] = useState<"encrypt" | "decrypt">("encrypt");
   
   // Encrypt state
