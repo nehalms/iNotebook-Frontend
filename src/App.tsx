@@ -42,7 +42,6 @@ function AuthenticatedApp() {
     const getOrCreateDeviceId = () => {
       let id = sessionStorage.getItem('deviceId');
       if (!id) {
-        // Generate a simple UUID-like string
         id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
           const r = Math.random() * 16 | 0;
           const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -72,10 +71,8 @@ function AuthenticatedApp() {
       }
     };
 
-    // Send initial heartbeat
     sendHeartBeat();
 
-    // Set up interval to send heartbeat every 25 seconds
     const heartBeatInterval = setInterval(() => {
       sendHeartBeat();
     }, 25000);
@@ -179,7 +176,7 @@ function AuthenticatedApp() {
           <header className="flex items-center justify-between p-4 border-b bg-background">
             <div className="flex items-center gap-2">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">iNotebook</span>
                 <span>/</span>
                 <span>
