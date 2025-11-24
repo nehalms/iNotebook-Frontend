@@ -18,6 +18,7 @@ import {
   ArrowUp,
   ArrowDown,
   Search,
+  RotateCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -85,7 +86,12 @@ export default function AdminPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("users");
-
+  
+  // Separate loading states for refresh buttons
+  const [usersRefreshing, setUsersRefreshing] = useState(false);
+  const [gameStatsRefreshing, setGameStatsRefreshing] = useState(false);
+  const [permissionsRefreshing, setPermissionsRefreshing] = useState(false);
+ 
   // Users data
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<AdminUser[]>([]);
@@ -124,6 +130,8 @@ export default function AdminPage() {
     onlineEnd: moment().format("YYYY-MM-DD"),
   });
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [loginAnalyticsLoading, setLoginAnalyticsLoading] = useState(false);
+  const [onlineAnalyticsLoading, setOnlineAnalyticsLoading] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) {
@@ -139,7 +147,8 @@ export default function AdminPage() {
     setIsLoading(false);
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (isRefresh = false) => {
+    if (isRefresh) setUsersRefreshing(true);
     try {
       const response = await getUsers();
       if (response.error) {
@@ -169,10 +178,13 @@ export default function AdminPage() {
         description: "Failed to fetch users",
         variant: "destructive",
       });
+    } finally {
+      if (isRefresh) setUsersRefreshing(false);
     }
   };
 
-  const fetchGameStats = async () => {
+  const fetchGameStats = async (isRefresh = false) => {
+    if (isRefresh) setGameStatsRefreshing(true);
     try {
       const response = await getGameStats();
       if (response.error) {
@@ -191,10 +203,13 @@ export default function AdminPage() {
         description: "Failed to fetch game stats",
         variant: "destructive",
       });
+    } finally {
+      if (isRefresh) setGameStatsRefreshing(false);
     }
   };
 
-  const fetchPermissions = async () => {
+  const fetchPermissions = async (isRefresh = false) => {
+    if (isRefresh) setPermissionsRefreshing(true);
     try {
       const response = await getPermissions();
       if (response.error) {
@@ -213,11 +228,23 @@ export default function AdminPage() {
         description: "Failed to fetch permissions",
         variant: "destructive",
       });
+    } finally {
+      if (isRefresh) setPermissionsRefreshing(false);
     }
   };
 
   const fetchAnalytics = async (reqType: "both" | "user" | "online" = "both") => {
-    setAnalyticsLoading(true);
+    // Set loading states based on what we're fetching
+    if (reqType === "both") {
+      setAnalyticsLoading(true);
+      setLoginAnalyticsLoading(true);
+      setOnlineAnalyticsLoading(true);
+    } else if (reqType === "user") {
+      setLoginAnalyticsLoading(true);
+    } else if (reqType === "online") {
+      setOnlineAnalyticsLoading(true);
+    }
+
     try {
       let startDate, endDate;
       if (reqType === "user") {
@@ -269,7 +296,15 @@ export default function AdminPage() {
         variant: "destructive",
       });
     } finally {
-      setAnalyticsLoading(false);
+      if (reqType === "both") {
+        setAnalyticsLoading(false);
+        setLoginAnalyticsLoading(false);
+        setOnlineAnalyticsLoading(false);
+      } else if (reqType === "user") {
+        setLoginAnalyticsLoading(false);
+      } else if (reqType === "online") {
+        setOnlineAnalyticsLoading(false);
+      }
     }
   };
 
@@ -563,6 +598,15 @@ export default function AdminPage() {
                       className="pl-8 w-64"
                     />
                   </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => fetchUsers(true)}
+                    disabled={usersRefreshing || isLoading}
+                    title="Refresh users"
+                  >
+                    <RotateCw className={`h-4 w-4 ${usersRefreshing ? 'animate-spin' : ''}`} />
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -721,7 +765,18 @@ export default function AdminPage() {
         <TabsContent value="games" className="space-y-4">
             <Card className="rounded-xl">
               <CardHeader>
-              <CardTitle className="text-2xl font-serif">Game Statistics</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl font-serif">Game Statistics</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => fetchGameStats(true)}
+                    disabled={gameStatsRefreshing || isLoading}
+                    title="Refresh game stats"
+                  >
+                    <RotateCw className={`h-4 w-4 ${gameStatsRefreshing ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -799,7 +854,18 @@ export default function AdminPage() {
         <TabsContent value="permissions" className="space-y-4">
           <Card className="rounded-xl">
             <CardHeader>
-              <CardTitle className="text-2xl font-serif">User Permissions</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl font-serif">User Permissions</CardTitle>
+                 <Button
+                   variant="outline"
+                   size="icon"
+                   onClick={() => fetchPermissions(true)}
+                   disabled={permissionsRefreshing || isLoading}
+                   title="Refresh permissions"
+                 >
+                   <RotateCw className={`h-4 w-4 ${permissionsRefreshing ? 'animate-spin' : ''}`} />
+                 </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -954,7 +1020,9 @@ export default function AdminPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="rounded-xl">
               <CardHeader>
-                <CardTitle className="text-2xl font-serif">Login Analytics</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl font-serif">Login Analytics</CardTitle>
+                </div>
                 <div className="flex gap-2 mt-4">
                   <div className="space-y-2">
                     <Label>Start Date</Label>
@@ -977,14 +1045,21 @@ export default function AdminPage() {
                     />
                   </div>
                   <div className="flex items-end">
-                    <Button onClick={() => fetchAnalytics("user")} disabled={analyticsLoading}>
-                      {analyticsLoading ? "Loading..." : "Update"}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => fetchAnalytics("user")}
+                      disabled={loginAnalyticsLoading}
+                      title="Refresh login analytics"
+                      className="bg-blue-500 hover:bg-blue-600 text-white border-blue-500"
+                    >
+                      <RotateCw className={`h-4 w-4 ${loginAnalyticsLoading ? 'animate-spin' : ''}`} />
                     </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                {analyticsLoading ? (
+                {loginAnalyticsLoading ? (
                   <Skeleton className="h-64 w-full" />
                 ) : loginChartData.length > 0 ? (
                   <ChartContainer
@@ -1014,7 +1089,9 @@ export default function AdminPage() {
 
             <Card className="rounded-xl">
               <CardHeader>
-                <CardTitle className="text-2xl font-serif">Online Users Analytics</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl font-serif">Online Users Analytics</CardTitle>
+                </div>
                 <div className="flex gap-2 mt-4">
                   <div className="space-y-2">
                     <Label>Start Date</Label>
@@ -1037,14 +1114,21 @@ export default function AdminPage() {
                     />
                   </div>
                   <div className="flex items-end">
-                    <Button onClick={() => fetchAnalytics("online")} disabled={analyticsLoading}>
-                      {analyticsLoading ? "Loading..." : "Update"}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => fetchAnalytics("online")}
+                      disabled={onlineAnalyticsLoading}
+                      title="Refresh online users analytics"
+                      className="bg-blue-500 hover:bg-blue-600 text-white border-blue-500"
+                    >
+                      <RotateCw className={`h-4 w-4 ${onlineAnalyticsLoading ? 'animate-spin' : ''}`} />
                     </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                {analyticsLoading ? (
+                {onlineAnalyticsLoading ? (
                   <Skeleton className="h-64 w-full" />
                 ) : onlineChartData.length > 0 ? (
                   <ChartContainer
@@ -1081,7 +1165,23 @@ export default function AdminPage() {
         <TabsContent value="health" className="space-y-4">
           <Card className="rounded-xl">
             <CardHeader>
-              <CardTitle className="text-2xl font-serif">Services Health</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl font-serif">Services Health</CardTitle>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    // Force iframe reload
+                    const iframe = document.querySelector('iframe[title="Cron Job Status"]') as HTMLIFrameElement;
+                    if (iframe) {
+                      iframe.src = iframe.src;
+                    }
+                  }}
+                  title="Refresh services health"
+                >
+                  <RotateCw className="h-4 w-4" />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="w-full h-[550px] rounded-lg overflow-hidden border">

@@ -144,106 +144,105 @@ export default function TasksPage() {
     
     return (
       <Card
-        className={`rounded-xl border-l-4 ${getPriorityColor(task.priority)} hover-elevate cursor-pointer group`}
+        className={`rounded-xl border-l-4 ${getPriorityColor(task.priority)} hover-elevate cursor-pointer group relative`}
         data-testid={`card-task-${task.id}`}
       >
         <CardHeader className="p-6 pb-4">
           <div className="flex items-start justify-between gap-2">
-            {isConfirmingDelete ? (
-              <div className="flex items-center justify-center gap-3 w-full">
-                <p className="text-sm font-medium">Are you sure?</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      confirmDelete();
-                    }}
-                    className="p-1 hover:bg-green-50 rounded transition-colors"
-                    data-testid={`button-confirm-delete-${task.id}`}
-                    type="button"
-                  >
-                    <Check className="h-5 w-5 text-green-600" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      cancelDelete();
-                    }}
-                    className="p-1 hover:bg-red-50 rounded transition-colors"
-                    data-testid={`button-cancel-delete-${task.id}`}
-                    type="button"
-                  >
-                    <X className="h-5 w-5 text-red-600" />
-                  </button>
-                </div>
+            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleViewTask(task)}>
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <h4 className="font-semibold text-lg leading-tight line-clamp-1 flex-1 min-w-0">
+                  {task.title}
+                </h4>
+                <Badge className={`${getPriorityBadgeColor(task.priority)} text-xs`}>
+                  {task.priority}
+                </Badge>
               </div>
-            ) : (
-              <>
-                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleViewTask(task)}>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h4 className="font-semibold text-lg leading-tight">
-                      {task.title}
-                    </h4>
-                    <Badge className={`${getPriorityBadgeColor(task.priority)} text-xs`}>
-                      {task.priority}
-                    </Badge>
-                  </div>
-                  {task.createdAt && (
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(task.createdAt), "MMM d, yyyy 'at' hh:mm a")}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditTask(task);
-                    }}
-                    data-testid={`button-edit-task-${task.id}`}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDeleteTask(task.id);
-                    }}
-                    data-testid={`button-delete-task-${task.id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </>
-            )}
+              {task.createdAt && (
+                <p className="text-xs text-muted-foreground">
+                  {format(new Date(task.createdAt), "MMM d, yyyy 'at' hh:mm a")}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditTask(task);
+                }}
+                data-testid={`button-edit-task-${task.id}`}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                type="button"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDeleteTask(task.id);
+                }}
+                data-testid={`button-delete-task-${task.id}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
-        {!isConfirmingDelete && (
-          <CardContent className="px-6 pb-6 pt-0 cursor-pointer" onClick={() => handleViewTask(task)}>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  {completedCount} of {totalCount} subtasks completed
-                </span>
-                <span>{progress}%</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-300 ${getProgressColor(progress)}`}
-                  style={{ width: `${progress}%` }}
-                />
+        <CardContent className="px-6 pb-6 pt-0 cursor-pointer" onClick={() => handleViewTask(task)}>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                {completedCount} of {totalCount} subtasks completed
+              </span>
+              <span>{progress}%</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${getProgressColor(progress)}`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        </CardContent>
+        
+        {isConfirmingDelete && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
+            <div className="flex flex-col items-center gap-4 bg-card/95 backdrop-blur-sm rounded-lg p-6 shadow-lg border">
+              <p className="text-sm font-medium">Are you sure?</p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    confirmDelete();
+                  }}
+                  className="p-2 hover:bg-green-50 rounded-full transition-colors bg-green-100"
+                  data-testid={`button-confirm-delete-${task.id}`}
+                  type="button"
+                >
+                  <Check className="h-5 w-5 text-green-600" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    cancelDelete();
+                  }}
+                  className="p-2 hover:bg-red-50 rounded-full transition-colors bg-red-100"
+                  data-testid={`button-cancel-delete-${task.id}`}
+                  type="button"
+                >
+                  <X className="h-5 w-5 text-red-600" />
+                </button>
               </div>
             </div>
-          </CardContent>
+          </div>
         )}
       </Card>
     );

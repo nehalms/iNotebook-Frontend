@@ -132,3 +132,41 @@ export const updateUserPassword = async (
   }
 };
 
+export interface DeleteAccountResponse {
+  success: boolean;
+  error?: string;
+}
+
+export const deleteAccount = async (): Promise<DeleteAccountResponse> => {
+  try {
+    const response = await fetch(getApiUrl("auth/changestatus"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (response.status === 401) {
+      const error: ApiErrorResponse = await response.json();
+      if (handleApiError(response, error)) {
+        return { success: false };
+      }
+    }
+
+    if (response.status === 403) {
+      return { success: false, error: "Forbidden" };
+    }
+
+    if (!response.ok) {
+      return { success: false, error: "Failed to delete account" };
+    }
+
+    const data = await response.json();
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    return { success: false, error: "Failed to delete account" };
+  }
+};
+

@@ -1,15 +1,26 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useSessionStore } from "@/store/sessionStore";
-import { getUserProfile, updateUserName, updateUserPassword } from "@/lib/api/profile";
+import { getUserProfile, updateUserName, updateUserPassword, deleteAccount } from "@/lib/api/profile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, CheckCircle2, XCircle, User, Mail, Calendar, Clock, Edit2, Lock, Save, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Eye, EyeOff, CheckCircle2, XCircle, User, Mail, Calendar, Clock, Edit2, Lock, Save, X, Trash2 } from "lucide-react";
 import moment from "moment";
+import { logout } from "@/lib/api/auth";
 
 const permissionsArray = {
   Notes: "notes",
@@ -49,6 +60,8 @@ export default function ProfilePage() {
   });
 
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -189,12 +202,56 @@ export default function ProfilePage() {
   const isPasswordMatch = pass.cpassword !== "" && pass.password === pass.cpassword;
   const isPasswordMismatch = pass.cpassword !== "" && pass.password !== pass.cpassword;
 
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await deleteAccount();
+      if (response.success) {
+        toast({
+          title: "Account Deleted",
+          description: "Your account has been deleted successfully",
+        });
+        // Logout and redirect to login
+        await logout();
+        useSessionStore.getState().logout();
+        setLocation("/login");
+      } else {
+        toast({
+          title: "Error",
+          description: response.error || "Failed to delete account",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast({
+        title: "Error",
+        description: "Some error occurred while deleting account",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-chart-3/10 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-4xl font-bold font-serif mb-2">Profile</h1>
-          <p className="text-muted-foreground text-lg">View and manage your account information</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold font-serif mb-2">Profile</h1>
+            <p className="text-muted-foreground text-lg">View and manage your account information</p>
+          </div>
+          <Button
+            variant="destructive"
+            onClick={() => setShowDeleteDialog(true)}
+            disabled={loading || isDeleting}
+            className="flex items-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Account
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -469,6 +526,29 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Account Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your account
+              and remove all your data from our servers. You will be logged out immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAccount}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Yes, delete my account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

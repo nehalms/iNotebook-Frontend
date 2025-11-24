@@ -180,103 +180,100 @@ export default function NotesPage() {
             return (
               <Card
                 key={note.id}
-                className="rounded-xl hover-elevate cursor-pointer group"
+                className="rounded-xl hover-elevate cursor-pointer group relative"
                 data-testid={`card-note-${note.id}`}
               >
                 <CardHeader className="p-6 pb-4">
                   <div className="flex items-start justify-between gap-2">
-                    {isConfirmingDelete ? (
-                      <div className="flex items-center justify-center gap-3 w-full">
-                        <p className="text-sm font-medium">Are you sure?</p>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              confirmDelete();
-                            }}
-                            className="p-1 hover:bg-green-50 rounded transition-colors"
-                            data-testid={`button-confirm-delete-${note.id}`}
-                            type="button"
-                          >
-                            <Check className="h-5 w-5 text-green-600" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              cancelDelete();
-                            }}
-                            className="p-1 hover:bg-red-50 rounded transition-colors"
-                            data-testid={`button-cancel-delete-${note.id}`}
-                            type="button"
-                          >
-                            <X className="h-5 w-5 text-red-600" />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <h3
-                          className="text-xl font-semibold line-clamp-1 flex-1 cursor-pointer"
-                          onClick={() => handleViewNote(note)}
-                        >
-                          {note.title}
-                        </h3>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditNote(note);
-                            }}
-                            data-testid={`button-edit-note-${note.id}`}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleDeleteNote(note.id);
-                            }}
-                            data-testid={`button-delete-note-${note.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </>
-                    )}
+                    <h3
+                      className="text-xl font-semibold line-clamp-1 flex-1 cursor-pointer"
+                      onClick={() => handleViewNote(note)}
+                    >
+                      {note.title}
+                    </h3>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditNote(note);
+                        }}
+                        data-testid={`button-edit-note-${note.id}`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeleteNote(note.id);
+                        }}
+                        data-testid={`button-delete-note-${note.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
-                {!isConfirmingDelete && (
-                  <>
-                    <CardContent className="p-6 pt-0 cursor-pointer" onClick={() => handleViewNote(note)}>
-                      <p className="text-sm text-muted-foreground line-clamp-3">
-                        {note.content}
-                      </p>
-                    </CardContent>
-                    <CardFooter className="p-6 pt-4 flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        {note.tag && (
-                          <Badge variant="outline" data-testid={`badge-tag-${note.id}`}>
-                            {note.tag}
-                          </Badge>
-                        )}
+                <CardContent className="p-6 pt-0 cursor-pointer" onClick={() => handleViewNote(note)}>
+                  <p className="text-sm text-muted-foreground line-clamp-3">
+                    {note.content}
+                  </p>
+                </CardContent>
+                <CardFooter className="p-6 pt-4 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    {note.tag && (
+                      <Badge variant="outline" data-testid={`badge-tag-${note.id}`}>
+                        {note.tag}
+                      </Badge>
+                    )}
+                  </div>
+                  <span
+                    className="text-xs text-muted-foreground"
+                    data-testid={`text-date-${note.id}`}
+                  >
+                    {format(new Date(note.date), "MMM d, yyyy hh:mm a")}
+                  </span>
+                </CardFooter>
+                
+                {isConfirmingDelete && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
+                    <div className="flex flex-col items-center gap-4 bg-card/95 backdrop-blur-sm rounded-lg p-6 shadow-lg border">
+                      <p className="text-sm font-medium">Are you sure?</p>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            confirmDelete();
+                          }}
+                          className="p-2 hover:bg-green-50 rounded-full transition-colors bg-green-100"
+                          data-testid={`button-confirm-delete-${note.id}`}
+                          type="button"
+                        >
+                          <Check className="h-5 w-5 text-green-600" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            cancelDelete();
+                          }}
+                          className="p-2 hover:bg-red-50 rounded-full transition-colors bg-red-100"
+                          data-testid={`button-cancel-delete-${note.id}`}
+                          type="button"
+                        >
+                          <X className="h-5 w-5 text-red-600" />
+                        </button>
                       </div>
-                      <span
-                        className="text-xs text-muted-foreground"
-                        data-testid={`text-date-${note.id}`}
-                      >
-                        {format(new Date(note.date), "MMM d, yyyy hh:mm a")}
-                      </span>
-                    </CardFooter>
-                  </>
+                    </div>
+                  </div>
                 )}
               </Card>
             );
