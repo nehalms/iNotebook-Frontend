@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useSessionStore } from "@/store/sessionStore";
 import PermissionDenied from "./permission-denied";
 import {
@@ -30,6 +30,7 @@ export default function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null);
   const { tasks, isLoading, createTask, updateTask, deleteTask, isCreating, isUpdating, isDeleting } = useTasks();
+  const scrollPositionRef = useRef<number>(0);
 
   const handleCreateTask = () => {
     setSelectedTask(null);
@@ -48,7 +49,16 @@ export default function TasksPage() {
   };
 
   const handleDeleteTask = (taskId: string) => {
+    // Save current scroll position
+    scrollPositionRef.current = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
     setDeleteConfirmTaskId(taskId);
+    // Restore scroll position after state update
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollPositionRef.current,
+        behavior: 'instant'
+      });
+    }, 0);
   };
 
   const confirmDelete = async () => {
