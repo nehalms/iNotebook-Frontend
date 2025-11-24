@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { UserPlus, CheckCircle2, Mail } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,8 +24,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { OtpVerification } from "@/components/otp-verification";
-import { signup } from "@/lib/api/auth";
-import { sendOtpEmail, verifyOtp } from "@/lib/api/email";
+import { signup, checkUserAndSendOtp } from "@/lib/api/auth";
+import { verifyOtp } from "@/lib/api/email";
 import { encryptMessage } from "@/lib/utils/encryption";
 import { useSessionStore } from "@/store/sessionStore";
 
@@ -59,8 +59,9 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [isVerifyingUser, setIsVerifyingUser] = useState(false);
+  const [formData, setFormData] = useState<SignupFormValues | null>(null);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -74,60 +75,21 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
     },
   });
 
-  const email = form.watch("email");
-
-  const handleSendOtp = async () => {
-    if (!email || !email.endsWith(".com")) {
-      toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSendingOtp(true);
-    try {
-      await sendOtpEmail({
-        email: [email],
-        cc: [],
-        subject: "Create Account",
-        text: "",
-      });
-      setShowOtp(true);
-      setIsEmailVerified(false);
-      toast({
-        title: "OTP Sent",
-        description: "Verification code has been sent to your email",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to send OTP",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSendingOtp(false);
-    }
-  };
 
   const handleVerifyOtp = async (code: number) => {
-    if (!email) return;
+    if (!formData) return;
 
     setIsVerifyingOtp(true);
     try {
       const response = await verifyOtp({
-        email: email,
+        email: formData.email,
         code: code.toString(),
       });
 
       if (response.success && response.verified) {
         setIsEmailVerified(true);
-        setShowOtp(false);
-        toast({
-          title: "Email Verified",
-          description: "Your email has been verified successfully",
-        });
+        // Keep showOtp true to stay on OTP view, proceed with signup
+        await proceedWithSignup(formData);
       } else {
         toast({
           title: "Verification Failed",
@@ -147,19 +109,27 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
   };
 
   const handleResendOtp = async () => {
-    await handleSendOtp();
-  };
-
-  const onSubmit = async (data: SignupFormValues) => {
-    if (!isEmailVerified) {
+    if (!formData) return;
+    setIsLoading(true);
+    try {
+      const encryptedEmail = await encryptMessage(formData.email);
+      await checkUserAndSendOtp(encryptedEmail, 'signup');
       toast({
-        title: "Email Not Verified",
-        description: "Please verify your email before signing up",
+        title: "OTP Sent",
+        description: "A new verification code has been sent to your email",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  const proceedWithSignup = async (data: SignupFormValues) => {
     setIsLoading(true);
     try {
       // Encrypt data before sending
@@ -210,6 +180,67 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
     }
   };
 
+  const onSubmit = async (data: SignupFormValues) => {
+    // Store form data
+    setFormData(data);
+    setIsVerifyingUser(true);
+    try {
+      // Encrypt email before sending
+      const encryptedEmail = await encryptMessage(data.email);
+      
+      // Check if user exists and send OTP
+      const response = await checkUserAndSendOtp(encryptedEmail, 'signup');
+      
+      if (response.success) {
+        setShowOtp(true);
+        setIsEmailVerified(false);
+        toast({
+          title: "OTP Sent",
+          description: response.message || "Verification code has been sent to your email",
+        });
+      } else {
+        // Check if error is about user already existing
+        const errorMsg = response.error || "Failed to send OTP";
+        if (errorMsg.includes("already exists") || errorMsg.includes("user with this email")) {
+          // Redirect to login with email pre-populated
+          const encodedEmail = encodeURIComponent(data.email);
+          setLocation(`/login?email=${encodedEmail}`);
+          toast({
+            title: "Account Already Exists",
+            description: "This email is already registered. Redirecting to login...",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: errorMsg,
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to check user and send OTP";
+      
+      if (errorMessage.includes("already exists") || errorMessage.includes("user with this email")) {
+        const encodedEmail = encodeURIComponent(data.email);
+        setLocation(`/login?email=${encodedEmail}`);
+        toast({
+          title: "Account Already Exists",
+          description: "This email is already registered. Redirecting to login...",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsVerifyingUser(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
       <Card className="w-full max-w-md rounded-2xl shadow-lg">
@@ -226,73 +257,16 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
         </CardHeader>
 
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Enter your full name"
-                        data-testid="input-name"
-                        disabled={isLoading}
-                        className="h-12"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <div className="flex gap-2">
-                        <Input
-                          {...field}
-                          type="email"
-                          placeholder="your@email.com"
-                          data-testid="input-email"
-                          disabled={isLoading || isEmailVerified || showOtp}
-                          className={`h-12 flex-1 ${
-                            isEmailVerified ? "border-green-500" : ""
-                          }`}
-                        />
-                        {!isEmailVerified && !showOtp && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleSendOtp}
-                            disabled={isSendingOtp || !email}
-                            className="h-12"
-                            data-testid="button-verify-email"
-                          >
-                            <Mail className="h-4 w-4 mr-2" />
-                            Verify
-                          </Button>
-                        )}
-                      </div>
-                    </FormControl>
-                    {isEmailVerified && (
-                      <div className="flex items-center gap-2 text-sm text-green-600">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>Email verified</span>
-                      </div>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {showOtp && !isEmailVerified && (
+          {showOtp ? (
+            <div className="space-y-4">
+              {isEmailVerified && isLoading ? (
+                <div className="p-4 border rounded-lg bg-muted/50 text-center space-y-4">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <p className="text-sm text-muted-foreground">Creating your account...</p>
+                  </div>
+                </div>
+              ) : (
                 <div className="p-4 border rounded-lg bg-muted/50">
                   <OtpVerification
                     onVerify={handleVerifyOtp}
@@ -302,59 +276,104 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
                   />
                 </div>
               )}
+            </div>
+          ) : (
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Enter your full name"
+                          data-testid="input-name"
+                          disabled={isLoading || isVerifyingUser}
+                          className="h-12"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="password"
-                        placeholder="Create a password (min 6 characters)"
-                        data-testid="input-password"
-                        disabled={isLoading}
-                        className="h-12"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="email"
+                          placeholder="your@email.com"
+                          data-testid="input-email"
+                          disabled={isLoading || isVerifyingUser}
+                          className="h-12"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="password"
-                        placeholder="Confirm your password"
-                        data-testid="input-confirm-password"
-                        disabled={isLoading}
-                        className="h-12"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="password"
+                          placeholder="Create a password (min 6 characters)"
+                          data-testid="input-password"
+                          disabled={isLoading || isVerifyingUser}
+                          className="h-12"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <Button
-                type="submit"
-                className="w-full h-12 text-base"
-                disabled={isLoading}
-                data-testid="button-signup"
-              >
-                {isLoading ? "Creating account..." : "Create Account"}
-              </Button>
-            </form>
-          </Form>
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="password"
+                          placeholder="Confirm your password"
+                          data-testid="input-confirm-password"
+                          disabled={isLoading || isVerifyingUser}
+                          className="h-12"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-base"
+                  disabled={isLoading || isVerifyingUser}
+                  data-testid="button-signup"
+                >
+                  {isLoading ? "Sending OTP..." : isVerifyingUser ? "Verifying..." : "Create Account"}
+                </Button>
+              </form>
+            </Form>
+          )}
         </CardContent>
 
         <CardFooter className="flex justify-center pb-6">

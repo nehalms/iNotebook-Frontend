@@ -23,8 +23,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { OtpVerification } from "@/components/otp-verification";
-import { getPassword, updatePassword } from "@/lib/api/auth";
-import { sendOtpEmail, verifyOtp } from "@/lib/api/email";
+import { checkUserAndSendOtp, updatePassword } from "@/lib/api/auth";
+import { verifyOtp } from "@/lib/api/email";
 import { encryptMessage } from "@/lib/utils/encryption";
 
 const forgotPasswordSchema = z.object({
@@ -77,27 +77,22 @@ export default function ForgotPasswordPage() {
     try {
       // Encrypt email before checking
       const encryptedEmail = await encryptMessage(data.email);
-      // Check if user exists
-      const response = await getPassword(encryptedEmail);
-      if (response.found && response.user) {
+      
+      // Check if user exists and send OTP
+      const response = await checkUserAndSendOtp(encryptedEmail, 'forgot-password');
+      
+      if (response.success && response.user) {
         setUserData({ _id: response.user._id, email: data.email });
-        // Send OTP email
-        await sendOtpEmail({
-          email: data.email,
-          cc: [],
-          subject: "Reset Password",
-          text: "",
-        });
         setEmailSent(true);
         setShowOtp(true);
         toast({
           title: "OTP Sent",
-          description: "Verification code has been sent to your email",
+          description: response.message || "Verification code has been sent to your email",
         });
       } else {
         toast({
           title: "Error",
-          description: response.error || "No user found with this email",
+          description: response.error || "Failed to send OTP",
           variant: "destructive",
         });
       }
@@ -150,16 +145,20 @@ export default function ForgotPasswordPage() {
 
   const handleResendOtp = async () => {
     if (!userData) return;
-    await sendOtpEmail({
-      email: userData.email,
-      cc: [],
-      subject: "Reset Password",
-      text: "",
-    });
-    toast({
-      title: "OTP Sent",
-      description: "A new verification code has been sent to your email",
-    });
+    try {
+      const encryptedEmail = await encryptMessage(userData.email);
+      await checkUserAndSendOtp(encryptedEmail, 'forgot-password');
+      toast({
+        title: "OTP Sent",
+        description: "A new verification code has been sent to your email",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
+        variant: "destructive",
+      });
+    }
   };
 
   const onResetPassword = async (data: ResetPasswordFormValues) => {
@@ -200,8 +199,8 @@ export default function ForgotPasswordPage() {
           </CardTitle>
           <CardDescription className="text-base">
             {emailSent
-              ? "We've sent you a reset link to your email address"
-              : "Enter your email to receive a password reset link"}
+              ? "We've sent you a verification code to your email address"
+              : "Enter your email to receive a verification code"}
           </CardDescription>
         </CardHeader>
 
@@ -239,14 +238,14 @@ export default function ForgotPasswordPage() {
                   disabled={isLoading}
                   data-testid="button-send-reset"
                 >
-                  {isLoading ? "Sending..." : "Send Reset Link"}
+                  {isLoading ? "Sending..." : "Send Verification Code"}
                 </Button>
 
                 <Link href="/login">
                   <Button
                     type="button"
                     variant="ghost"
-                    className="w-full h-12 text-base gap-2"
+                    className="w-full h-12 text-base gap-2 my-1"
                     data-testid="button-back-to-login"
                   >
                     <ArrowLeft className="h-4 w-4" />
@@ -270,7 +269,7 @@ export default function ForgotPasswordPage() {
               <Link href="/login">
                 <Button
                   variant="outline"
-                  className="w-full h-12 text-base gap-2"
+                  className="w-full h-12 text-base gap-2 my-1"
                   data-testid="button-back-to-login"
                 >
                   <ArrowLeft className="h-4 w-4" />

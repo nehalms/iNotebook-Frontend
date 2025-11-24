@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Lock, CheckCircle2, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -47,8 +47,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [showAdminOtp, setShowAdminOtp] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // Get email from query parameter
+  const getEmailFromQuery = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('email') || '';
+  };
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -57,6 +63,19 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       password: "",
     },
   });
+
+  useEffect(() => {
+    const emailFromQuery = getEmailFromQuery();
+    if (emailFromQuery) {
+      form.setValue('email', emailFromQuery);
+      // Show a toast message
+      toast({
+        title: "Account Already Exists",
+        description: "This email is already registered. Please sign in instead.",
+        variant: "default",
+      });
+    }
+  }, []);
 
   const email = form.watch("email");
 

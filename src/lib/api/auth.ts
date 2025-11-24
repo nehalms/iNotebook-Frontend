@@ -172,3 +172,27 @@ export async function updatePassword(id: string, email: string, password: string
   return await response.json();
 }
 
+// Check if user exists and send OTP for signup or forgot password
+export async function checkUserAndSendOtp(
+  email: string, 
+  type: 'signup' | 'forgot-password' = 'signup'
+): Promise<{ success: boolean; message?: string; error?: string; user?: { _id: string } }> {
+  // Note: Email should be encrypted before calling this function
+  const response = await fetch(getApiUrl(`auth/checkuserandsendotp?type=${type}`), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to check user and send OTP');
+  }
+
+  return data;
+}
+
