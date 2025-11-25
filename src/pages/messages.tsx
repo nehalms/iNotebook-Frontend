@@ -17,7 +17,7 @@ export default function MessagesPage() {
   const { permissions } = useSessionStore();
   
   if (!permissions.includes("messages")) {
-    return <PermissionDenied />;
+    return <PermissionDenied permission="messages" />;
   }
 
   const [mode, setMode] = useState<"encrypt" | "decrypt">("encrypt");

@@ -6,6 +6,8 @@ export interface AdminUser {
   email: string;
   date: string;
   isActive: boolean;
+  isAdmin?: boolean;
+  isPinSet?: boolean;
   notesCount: number;
   tasksCount: number;
   userId: string;
@@ -342,6 +344,180 @@ export const getAnalytics = async (
   } catch (error) {
     console.error("Error fetching analytics:", error);
     return { xAxisDates: [], loginData: [], onlineUsersData: [], colors: [], error: "Failed to fetch analytics" };
+  }
+};
+
+// Toggle admin status
+export const toggleAdminStatus = async (userId: string): Promise<{ success: boolean; isAdmin?: boolean; msg?: string; error?: string }> => {
+  try {
+    const response = await fetch(getApiUrl(`getData/toggleadmin/${userId}`), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to toggle admin status");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error toggling admin status:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to toggle admin status" };
+  }
+};
+
+// Notify user to set security pin
+export const notifyUserToSetPin = async (userId: string): Promise<{ success: boolean; msg?: string; error?: string }> => {
+  try {
+    const response = await fetch(getApiUrl(`getData/notifypinset/${userId}`), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to send notification");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error notifying user:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to send notification" };
+  }
+};
+
+// Permission Request interfaces
+export interface PermissionRequest {
+  _id: string;
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+  } | string;
+  permission: string;
+  status: 'pending' | 'approved' | 'declined';
+  adminComment?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Create permission request
+export const createPermissionRequest = async (permission: string): Promise<{ success: boolean; msg?: string; error?: string }> => {
+  try {
+    const response = await fetch(getApiUrl('permissionrequests/create'), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ permission }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to create request");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error creating permission request:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to create request" };
+  }
+};
+
+// Get all requests (admin) - can filter by status
+export const getAllRequests = async (status?: 'pending' | 'approved' | 'declined'): Promise<{ success: boolean; requests?: PermissionRequest[]; error?: string }> => {
+  try {
+    const url = status 
+      ? getApiUrl(`permissionrequests/all?status=${status}`)
+      : getApiUrl('permissionrequests/all');
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to fetch requests");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error fetching requests:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to fetch requests" };
+  }
+};
+
+// Get pending requests (admin) - kept for backward compatibility
+export const getPendingRequests = async (): Promise<{ success: boolean; requests?: PermissionRequest[]; error?: string }> => {
+  return getAllRequests('pending');
+};
+
+// Respond to permission request (admin)
+export const respondToRequest = async (
+  requestId: string,
+  action: 'approve' | 'decline',
+  comment?: string
+): Promise<{ success: boolean; msg?: string; error?: string }> => {
+  try {
+    const response = await fetch(getApiUrl(`permissionrequests/${requestId}/respond`), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ action, comment }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to respond to request");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error responding to request:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to respond to request" };
+  }
+};
+
+// Get user's own permission requests
+export const getMyRequests = async (): Promise<{ success: boolean; requests?: PermissionRequest[]; error?: string }> => {
+  try {
+    const response = await fetch(getApiUrl('permissionrequests/myrequests'), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to fetch requests");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error fetching user requests:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to fetch requests" };
   }
 };
 

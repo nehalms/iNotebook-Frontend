@@ -84,7 +84,6 @@ export default function NewsPage() {
       return;
     }
     if (!permissions.includes("news")) {
-      setLocation("/permission-denied");
       return;
     }
     // Initial fetch on mount
@@ -187,7 +186,7 @@ export default function NewsPage() {
   };
 
   if (!permissions.includes("news")) {
-    return <PermissionDenied />;
+    return <PermissionDenied permission="news" />;
   }
 
   return (

@@ -29,7 +29,7 @@ export default function NotesPage() {
   const { permissions } = useSessionStore();
   
   if (!permissions.includes("notes")) {
-    return <PermissionDenied />;
+    return <PermissionDenied permission="notes" />;
   }
 
   const [dialogOpen, setDialogOpen] = useState(false);
