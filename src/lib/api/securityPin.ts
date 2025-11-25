@@ -158,3 +158,22 @@ export async function disableSecurityPin(): Promise<DisablePinResponse> {
 
   return data;
 }
+
+// Send OTP for forgot security pin
+export async function sendForgotPinOtp(): Promise<SendOtpResponse> {
+  const response = await fetch(getApiUrl('pin/forgot/otp'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to send OTP');
+  }
+
+  return data;
+}

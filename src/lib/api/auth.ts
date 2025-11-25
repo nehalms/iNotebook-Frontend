@@ -197,3 +197,24 @@ export async function checkUserAndSendOtp(
   return data;
 }
 
+// Send admin OTP for login
+export async function sendAdminOtp(email: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  // Note: Email should be encrypted before calling this function
+  const response = await fetch(getApiUrl('auth/sendadminotp'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to send admin OTP');
+  }
+
+  return data;
+}
+
