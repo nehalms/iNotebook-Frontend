@@ -35,7 +35,7 @@ export default function ImagesPage() {
   const [location] = useLocation();
   
   if (!permissions.includes("images")) {
-    return <PermissionDenied />;
+    return <PermissionDenied permission="images" />;
   }
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

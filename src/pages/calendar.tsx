@@ -202,7 +202,7 @@ export default function CalendarPage() {
   };
 
   if (!permissions.includes("calendar")) {
-    return <PermissionDenied />;
+    return <PermissionDenied permission="calendar" />;
   }
 
   return (

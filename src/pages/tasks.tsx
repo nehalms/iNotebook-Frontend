@@ -22,7 +22,7 @@ export default function TasksPage() {
   const { permissions } = useSessionStore();
   
   if (!permissions.includes("tasks")) {
-    return <PermissionDenied />;
+    return <PermissionDenied permission="tasks" />;
   }
 
   const [dialogOpen, setDialogOpen] = useState(false);

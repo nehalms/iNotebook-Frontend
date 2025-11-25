@@ -19,6 +19,9 @@ import {
   ArrowDown,
   Search,
   RotateCw,
+  Crown,
+  Mail,
+  MessageSquare,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -35,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,9 +61,15 @@ import {
   toggleAllPermissions,
   getAnalytics,
   deleteUser,
+  toggleAdminStatus,
+  notifyUserToSetPin,
+  createPermissionRequest,
+  getAllRequests,
+  respondToRequest,
   type AdminUser,
   type GameStat,
   type PermissionUser,
+  type PermissionRequest,
 } from "@/lib/api/admin";
 import {
   ChartContainer,
@@ -114,9 +124,36 @@ export default function AdminPage() {
   // User delete
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
+  
+  // Admin toggle
+  const [adminToggleDialogOpen, setAdminToggleDialogOpen] = useState(false);
+  const [userToToggleAdmin, setUserToToggleAdmin] = useState<AdminUser | null>(null);
+  const [isTogglingAdmin, setIsTogglingAdmin] = useState(false);
+  
+  // Pin notification
+  const [pinNotificationDialogOpen, setPinNotificationDialogOpen] = useState(false);
+  const [userToNotify, setUserToNotify] = useState<AdminUser | null>(null);
+  const [isNotifying, setIsNotifying] = useState(false);
+  
+  // Permission requests
+  const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]);
+  const [filteredRequests, setFilteredRequests] = useState<PermissionRequest[]>([]);
+  const [requestsRefreshing, setRequestsRefreshing] = useState(false);
+  const [respondDialogOpen, setRespondDialogOpen] = useState(false);
+  const [requestToRespond, setRequestToRespond] = useState<PermissionRequest | null>(null);
+  const [responseComment, setResponseComment] = useState("");
+  const [isResponding, setIsResponding] = useState(false);
+  const [requestStatusFilter, setRequestStatusFilter] = useState<'all' | 'pending' | 'approved' | 'declined'>('all');
+  const [requestSearchQuery, setRequestSearchQuery] = useState("");
+  const [requestSortField, setRequestSortField] = useState<keyof PermissionRequest>('createdAt');
+  const [requestSortDirection, setRequestSortDirection] = useState<"asc" | "desc">("desc");
 
   // Permissions
   const [permissionUsers, setPermissionUsers] = useState<PermissionUser[]>([]);
+  const [filteredPermissionUsers, setFilteredPermissionUsers] = useState<PermissionUser[]>([]);
+  const [permissionSearchQuery, setPermissionSearchQuery] = useState("");
+  const [permissionSortField, setPermissionSortField] = useState<keyof PermissionUser>('name');
+  const [permissionSortDirection, setPermissionSortDirection] = useState<"asc" | "desc">("asc");
 
   // Analytics
   const [analyticsData, setAnalyticsData] = useState({
@@ -143,8 +180,161 @@ export default function AdminPage() {
 
   const fetchAllData = async () => {
     setIsLoading(true);
-    await Promise.all([fetchUsers(), fetchGameStats(), fetchPermissions(), fetchAnalytics()]);
+    await Promise.all([fetchUsers(), fetchGameStats(), fetchPermissions(), fetchAnalytics(), fetchPermissionRequests()]);
     setIsLoading(false);
+  };
+  
+  const fetchPermissionRequests = async (isRefresh = false) => {
+    if (isRefresh) setRequestsRefreshing(true);
+    try {
+      const status = requestStatusFilter === 'all' ? undefined : requestStatusFilter;
+      const response = await getAllRequests(status);
+      if (response.error) {
+        toast({
+          title: "Error",
+          description: response.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      setPermissionRequests(response.requests || []);
+    } catch (error) {
+      console.error("Error fetching permission requests:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch permission requests",
+        variant: "destructive",
+      });
+    } finally {
+      if (isRefresh) setRequestsRefreshing(false);
+    }
+  };
+  
+  // Filter and sort requests
+  useEffect(() => {
+    let result = [...permissionRequests];
+
+    // Apply search filter
+    if (requestSearchQuery.trim()) {
+      const query = requestSearchQuery.toLowerCase();
+      result = result.filter((request) => {
+        const user = typeof request.user === 'object' ? request.user : null;
+        const userName = user?.name?.toLowerCase() || '';
+        const userEmail = user?.email?.toLowerCase() || '';
+        const permission = request.permission.toLowerCase();
+        return userName.includes(query) || userEmail.includes(query) || permission.includes(query);
+      });
+    }
+
+    // Apply sorting
+    result.sort((a, b) => {
+      let aValue: any = a[requestSortField];
+      let bValue: any = b[requestSortField];
+
+      // Handle different data types
+      if (requestSortField === 'createdAt' || requestSortField === 'updatedAt') {
+        aValue = aValue ? new Date(aValue).getTime() : 0;
+        bValue = bValue ? new Date(bValue).getTime() : 0;
+      } else if (requestSortField === 'user') {
+        const aUser = typeof a.user === 'object' ? a.user : null;
+        const bUser = typeof b.user === 'object' ? b.user : null;
+        aValue = aUser?.name?.toLowerCase() || '';
+        bValue = bUser?.name?.toLowerCase() || '';
+      } else if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (aValue < bValue) return requestSortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return requestSortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredRequests(result);
+  }, [permissionRequests, requestSearchQuery, requestSortField, requestSortDirection]);
+  
+  // Fetch requests when status filter changes
+  useEffect(() => {
+    if (isLoggedIn && isAdmin && activeTab === 'requests') {
+      fetchPermissionRequests();
+    }
+  }, [requestStatusFilter, activeTab]);
+  
+  const handleRequestSort = (field: keyof PermissionRequest) => {
+    if (requestSortField === field) {
+      setRequestSortDirection(requestSortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setRequestSortField(field);
+      setRequestSortDirection("desc");
+    }
+  };
+  
+  const getRequestSortIcon = (field: keyof PermissionRequest) => {
+    if (requestSortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    }
+    return requestSortDirection === "asc" ? (
+      <ArrowUp className="h-4 w-4 ml-1" />
+    ) : (
+      <ArrowDown className="h-4 w-4 ml-1" />
+    );
+  };
+  
+  // Filter and sort permission users
+  useEffect(() => {
+    let result = [...permissionUsers];
+
+    // Apply search filter
+    if (permissionSearchQuery.trim()) {
+      const query = permissionSearchQuery.toLowerCase();
+      result = result.filter((user) => {
+        const userName = user.name?.toLowerCase() || '';
+        const userEmail = user.email?.toLowerCase() || '';
+        return userName.includes(query) || userEmail.includes(query);
+      });
+    }
+
+    // Apply sorting
+    result.sort((a, b) => {
+      let aValue: any = a[permissionSortField];
+      let bValue: any = b[permissionSortField];
+
+      // Handle different data types
+      if (typeof aValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      } else if (typeof aValue === "boolean") {
+        // For boolean, true comes first in desc, false first in asc
+        aValue = aValue ? 1 : 0;
+        bValue = bValue ? 1 : 0;
+      }
+
+      if (aValue < bValue) return permissionSortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return permissionSortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredPermissionUsers(result);
+  }, [permissionUsers, permissionSearchQuery, permissionSortField, permissionSortDirection]);
+  
+  const handlePermissionSort = (field: keyof PermissionUser) => {
+    if (permissionSortField === field) {
+      setPermissionSortDirection(permissionSortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setPermissionSortField(field);
+      setPermissionSortDirection("asc");
+    }
+  };
+  
+  const getPermissionSortIcon = (field: keyof PermissionUser) => {
+    if (permissionSortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    }
+    return permissionSortDirection === "asc" ? (
+      <ArrowUp className="h-4 w-4 ml-1" />
+    ) : (
+      <ArrowDown className="h-4 w-4 ml-1" />
+    );
   };
 
   const fetchUsers = async (isRefresh = false) => {
@@ -419,6 +609,105 @@ export default function AdminPage() {
       });
     }
   };
+  
+  const handleToggleAdmin = async () => {
+    if (!userToToggleAdmin) return;
+    
+    setIsTogglingAdmin(true);
+    try {
+      const response = await toggleAdminStatus(userToToggleAdmin.userId);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: response.msg || "Admin status updated successfully",
+        });
+        setAdminToggleDialogOpen(false);
+        setUserToToggleAdmin(null);
+        fetchUsers();
+      } else {
+        toast({
+          title: "Error",
+          description: response.error || "Failed to update admin status",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling admin:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update admin status",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTogglingAdmin(false);
+    }
+  };
+  
+  const handleNotifyPin = async () => {
+    if (!userToNotify) return;
+    
+    setIsNotifying(true);
+    try {
+      const response = await notifyUserToSetPin(userToNotify.userId);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: response.msg || "Notification sent successfully",
+        });
+        setPinNotificationDialogOpen(false);
+        setUserToNotify(null);
+      } else {
+        toast({
+          title: "Error",
+          description: response.error || "Failed to send notification",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error notifying user:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send notification",
+        variant: "destructive",
+      });
+    } finally {
+      setIsNotifying(false);
+    }
+  };
+  
+  const handleRespondToRequest = async (action: 'approve' | 'decline') => {
+    if (!requestToRespond) return;
+    
+    setIsResponding(true);
+    try {
+      const response = await respondToRequest(requestToRespond._id, action, responseComment);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: response.msg || `Request ${action}d successfully`,
+        });
+        setRespondDialogOpen(false);
+        setRequestToRespond(null);
+        setResponseComment("");
+        fetchPermissionRequests();
+      } else {
+        toast({
+          title: "Error",
+          description: response.error || "Failed to respond to request",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error responding to request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to respond to request",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResponding(false);
+    }
+  };
 
   // Sort and filter users
   useEffect(() => {
@@ -580,6 +869,9 @@ export default function AdminPage() {
             <TabsTrigger value="health" data-testid="tab-health" className="whitespace-nowrap">
               Services Health
             </TabsTrigger>
+            <TabsTrigger value="requests" data-testid="tab-requests" className="whitespace-nowrap">
+              Requests
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -660,24 +952,6 @@ export default function AdminPage() {
                         </TableHead>
                         <TableHead>
                           <button
-                            onClick={() => handleSort("notesCount")}
-                            className="flex items-center hover:text-foreground transition-colors"
-                          >
-                            Notes
-                            {getSortIcon("notesCount")}
-                          </button>
-                        </TableHead>
-                        <TableHead>
-                          <button
-                            onClick={() => handleSort("tasksCount")}
-                            className="flex items-center hover:text-foreground transition-colors"
-                          >
-                            Tasks
-                            {getSortIcon("tasksCount")}
-                          </button>
-                        </TableHead>
-                        <TableHead>
-                          <button
                             onClick={() => handleSort("isActive")}
                             className="flex items-center hover:text-foreground transition-colors"
                           >
@@ -685,6 +959,8 @@ export default function AdminPage() {
                             {getSortIcon("isActive")}
                           </button>
                         </TableHead>
+                        <TableHead>Security Pin</TableHead>
+                        <TableHead>Admin</TableHead>
                         {users.some(u => u.lastLoggedOn) && (
                           <TableHead>
                             <button
@@ -708,8 +984,6 @@ export default function AdminPage() {
                           <TableCell>
                             {moment(user.date).format("MMM DD, YYYY")}
                           </TableCell>
-                          <TableCell>{user.notesCount}</TableCell>
-                          <TableCell>{user.tasksCount}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <div
@@ -722,6 +996,33 @@ export default function AdminPage() {
                               </Badge>
                             </div>
                           </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {user.isPinSet ? (
+                                <>
+                                  <Shield className="h-4 w-4 text-green-500" />
+                                  <Badge variant="default">Set</Badge>
+                                </>
+                              ) : (
+                                <>
+                                  <Shield className="h-4 w-4 text-muted-foreground" />
+                                  <Badge variant="secondary">Not Set</Badge>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {user.isAdmin ? (
+                                <>
+                                  <Crown className="h-4 w-4 text-yellow-500" />
+                                  <Badge variant="default">Admin</Badge>
+                                </>
+                              ) : (
+                                <Badge variant="secondary">User</Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           {users.some(u => u.lastLoggedOn) && (
                             <TableCell>
                               {user.lastLoggedOn
@@ -730,17 +1031,46 @@ export default function AdminPage() {
                             </TableCell>
                           )}
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setUserToDelete(user);
-                                setDeleteUserDialogOpen(true);
-                              }}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setUserToToggleAdmin(user);
+                                  setAdminToggleDialogOpen(true);
+                                }}
+                                className="h-8 w-8"
+                                title={user.isAdmin ? "Revoke Admin" : "Make Admin"}
+                              >
+                                <Crown className={`h-4 w-4 ${user.isAdmin ? "text-yellow-500" : "text-muted-foreground"}`} />
+                              </Button>
+                              {!user.isPinSet && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setUserToNotify(user);
+                                    setPinNotificationDialogOpen(true);
+                                  }}
+                                  className="h-8 w-8"
+                                  title="Notify to set pin"
+                                >
+                                  <Mail className="h-4 w-4 text-primary" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setUserToDelete(user);
+                                  setDeleteUserDialogOpen(true);
+                                }}
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                title="Delete user"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -868,30 +1198,107 @@ export default function AdminPage() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Search Control */}
+              <div className="mb-6">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Search by user name or email..."
+                    value={permissionSearchQuery}
+                    onChange={(e) => setPermissionSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
               {isLoading ? (
                 <div className="space-y-3">
                   {[1, 2, 3, 4, 5].map((i) => (
                     <Skeleton key={i} className="h-16 w-full" />
                   ))}
                 </div>
-              ) : permissionUsers.length > 0 ? (
+              ) : filteredPermissionUsers.length > 0 ? (
                 <div className="rounded-lg border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Notes</TableHead>
-                        <TableHead>Tasks</TableHead>
-                        <TableHead>Images</TableHead>
-                        <TableHead>Games</TableHead>
-                        <TableHead>Messages</TableHead>
-                        <TableHead>News</TableHead>
-                        <TableHead>Calendar</TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handlePermissionSort('name')}
+                        >
+                          <div className="flex items-center">
+                            User
+                            {getPermissionSortIcon('name')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handlePermissionSort('notes')}
+                        >
+                          <div className="flex items-center justify-center">
+                            Notes
+                            {getPermissionSortIcon('notes')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handlePermissionSort('tasks')}
+                        >
+                          <div className="flex items-center justify-center">
+                            Tasks
+                            {getPermissionSortIcon('tasks')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handlePermissionSort('images')}
+                        >
+                          <div className="flex items-center justify-center">
+                            Images
+                            {getPermissionSortIcon('images')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handlePermissionSort('games')}
+                        >
+                          <div className="flex items-center justify-center">
+                            Games
+                            {getPermissionSortIcon('games')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handlePermissionSort('messages')}
+                        >
+                          <div className="flex items-center justify-center">
+                            Messages
+                            {getPermissionSortIcon('messages')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handlePermissionSort('news')}
+                        >
+                          <div className="flex items-center justify-center">
+                            News
+                            {getPermissionSortIcon('news')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handlePermissionSort('calendar')}
+                        >
+                          <div className="flex items-center justify-center">
+                            Calendar
+                            {getPermissionSortIcon('calendar')}
+                          </div>
+                        </TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {permissionUsers.map((user) => (
+                      {filteredPermissionUsers.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">
                             <div>
@@ -1009,7 +1416,11 @@ export default function AdminPage() {
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Shield className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No users found</p>
+                  <p className="text-muted-foreground">
+                    {permissionSearchQuery.trim()
+                      ? 'No users match your search'
+                      : 'No users found'}
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -1195,6 +1606,213 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="requests" className="space-y-4">
+          <Card className="rounded-xl">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl font-serif">Permission Requests</CardTitle>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => fetchPermissionRequests(true)}
+                  disabled={requestsRefreshing || isLoading}
+                  title="Refresh requests"
+                >
+                  <RotateCw className={`h-4 w-4 ${requestsRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Search and Filter Controls */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Search by user name, email, or feature..."
+                    value={requestSearchQuery}
+                    onChange={(e) => setRequestSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant={requestStatusFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setRequestStatusFilter('all')}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={requestStatusFilter === 'pending' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setRequestStatusFilter('pending')}
+                  >
+                    Pending
+                  </Button>
+                  <Button
+                    variant={requestStatusFilter === 'approved' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setRequestStatusFilter('approved')}
+                  >
+                    Approved
+                  </Button>
+                  <Button
+                    variant={requestStatusFilter === 'declined' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setRequestStatusFilter('declined')}
+                  >
+                    Declined
+                  </Button>
+                </div>
+              </div>
+
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : filteredRequests.length > 0 ? (
+                <div className="rounded-lg border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleRequestSort('user')}
+                        >
+                          <div className="flex items-center">
+                            User
+                            {getRequestSortIcon('user')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleRequestSort('permission')}
+                        >
+                          <div className="flex items-center">
+                            Feature
+                            {getRequestSortIcon('permission')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleRequestSort('status')}
+                        >
+                          <div className="flex items-center">
+                            Status
+                            {getRequestSortIcon('status')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleRequestSort('createdAt')}
+                        >
+                          <div className="flex items-center">
+                            Requested On
+                            {getRequestSortIcon('createdAt')}
+                          </div>
+                        </TableHead>
+                        <TableHead>Admin Comment</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRequests.map((request) => {
+                        const user = typeof request.user === 'object' ? request.user : null;
+                        const permissionNames: { [key: string]: string } = {
+                          notes: 'Notes',
+                          tasks: 'Tasks',
+                          images: 'Images',
+                          games: 'Games',
+                          messages: 'Messages',
+                          news: 'News',
+                          calendar: 'Calendar'
+                        };
+                        const statusColors = {
+                          pending: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+                          approved: 'bg-green-500/10 text-green-600 border-green-500/20',
+                          declined: 'bg-red-500/10 text-red-600 border-red-500/20',
+                        };
+                        return (
+                          <TableRow key={request._id}>
+                            <TableCell className="font-medium">
+                              <div>
+                                <div>{user ? user.name : 'Unknown'}</div>
+                                <div className="text-sm text-muted-foreground">{user ? user.email : 'Unknown'}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {permissionNames[request.permission] || request.permission}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant="outline" 
+                                className={statusColors[request.status as keyof typeof statusColors] || ''}
+                              >
+                                {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div>{moment(request.createdAt).format("MMM DD, YYYY HH:mm")}</div>
+                                {request.updatedAt && request.status !== 'pending' && (
+                                  <div className="text-sm text-muted-foreground">
+                                    Responded: {moment(request.updatedAt).format("MMM DD, YYYY HH:mm")}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {request.adminComment ? (
+                                <div className="max-w-xs">
+                                  <p className="text-sm">{request.adminComment}</p>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {request.status === 'pending' ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRequestToRespond(request);
+                                    setResponseComment("");
+                                    setRespondDialogOpen(true);
+                                  }}
+                                  disabled={isResponding}
+                                >
+                                  <MessageSquare className="h-4 w-4 mr-2" />
+                                  Respond
+                                </Button>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">Processed</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">
+                    {requestSearchQuery.trim() || requestStatusFilter !== 'all'
+                      ? 'No requests match your filters'
+                      : 'No requests found'}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -1233,6 +1851,110 @@ export default function AdminPage() {
             >
               Delete
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Admin Toggle Dialog */}
+      <AlertDialog open={adminToggleDialogOpen} onOpenChange={setAdminToggleDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {userToToggleAdmin?.isAdmin ? "Revoke Admin Status" : "Make Admin"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to {userToToggleAdmin?.isAdmin ? "revoke admin status from" : "make"} user "{userToToggleAdmin?.name}"?
+              {userToToggleAdmin?.isAdmin 
+                ? " They will lose admin privileges." 
+                : " They will gain full admin access to the system."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToToggleAdmin(null)} disabled={isTogglingAdmin}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleToggleAdmin}
+              disabled={isTogglingAdmin}
+              className={userToToggleAdmin?.isAdmin ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            >
+              {isTogglingAdmin ? "Processing..." : userToToggleAdmin?.isAdmin ? "Revoke Admin" : "Make Admin"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Pin Notification Dialog */}
+      <AlertDialog open={pinNotificationDialogOpen} onOpenChange={setPinNotificationDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Notify User to Set Security Pin</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send an email notification to "{userToNotify?.name}" with instructions on how to set up their security pin?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToNotify(null)} disabled={isNotifying}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleNotifyPin}
+              disabled={isNotifying}
+            >
+              {isNotifying ? "Sending..." : "Send Notification"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Respond to Request Dialog */}
+      <AlertDialog open={respondDialogOpen} onOpenChange={setRespondDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Respond to Permission Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              {requestToRespond && (
+                <>
+                  <p className="mb-2">
+                    User: <strong>{typeof requestToRespond.user === 'object' ? requestToRespond.user.name : 'Unknown'}</strong>
+                  </p>
+                  <p className="mb-4">
+                    Requested: <strong>{requestToRespond.permission}</strong>
+                  </p>
+                </>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="comment">Comment (optional)</Label>
+                <Textarea
+                  id="comment"
+                  value={responseComment}
+                  onChange={(e) => setResponseComment(e.target.value)}
+                  placeholder="Add a comment for the user..."
+                  className="min-h-[100px]"
+                  disabled={isResponding}
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setRequestToRespond(null); setResponseComment(""); }} disabled={isResponding}>
+              Cancel
+            </AlertDialogCancel>
+            <div className="flex gap-2">
+              <AlertDialogAction
+                onClick={() => handleRespondToRequest('decline')}
+                disabled={isResponding}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isResponding ? "Processing..." : "Decline"}
+              </AlertDialogAction>
+              <AlertDialogAction
+                onClick={() => handleRespondToRequest('approve')}
+                disabled={isResponding}
+              >
+                {isResponding ? "Processing..." : "Approve"}
+              </AlertDialogAction>
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

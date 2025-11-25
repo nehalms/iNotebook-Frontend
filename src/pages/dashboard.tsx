@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useSessionStore } from "@/store/sessionStore";
 import { getDashboardStats, type DashboardStats } from "@/lib/api/dashboard";
+import { getMyRequests, type PermissionRequest } from "@/lib/api/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -16,9 +17,23 @@ import {
   Target,
   Clock,
   Activity,
+  Shield,
+  MessageSquare,
+  CheckCircle2,
+  XCircle,
+  Eye,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import moment from "moment";
 
 export default function DashboardPage() {
   const [location, setLocation] = useLocation();
@@ -26,6 +41,9 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [viewAllRequestsOpen, setViewAllRequestsOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -33,6 +51,7 @@ export default function DashboardPage() {
       return;
     }
     fetchDashboardStats();
+    fetchPermissionRequests();
   }, [isLoggedIn, setLocation]);
 
   const fetchDashboardStats = async () => {
@@ -57,6 +76,20 @@ export default function DashboardPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchPermissionRequests = async () => {
+    setIsLoadingRequests(true);
+    try {
+      const response = await getMyRequests();
+      if (response.success && response.requests) {
+        setPermissionRequests(response.requests);
+      }
+    } catch (error) {
+      console.error("Error fetching permission requests:", error);
+    } finally {
+      setIsLoadingRequests(false);
     }
   };
 
@@ -295,6 +328,110 @@ export default function DashboardPage() {
           </Card>
         </div>
 
+        {/* Permission Requests */}
+        <Card className="rounded-xl">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl font-serif flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Permission Requests
+              </CardTitle>
+              {permissionRequests.length > 2 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setViewAllRequestsOpen(true)}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View All
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoadingRequests ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : permissionRequests.length > 0 ? (
+              <div className="space-y-3">
+                {permissionRequests.slice(0, 2).map((request) => {
+                  const permissionNames: { [key: string]: string } = {
+                    notes: 'Notes',
+                    tasks: 'Tasks',
+                    images: 'Images',
+                    games: 'Games',
+                    messages: 'Messages',
+                    news: 'News',
+                    calendar: 'Calendar'
+                  };
+                  const statusColors = {
+                    pending: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+                    approved: 'bg-green-500/10 text-green-600 border-green-500/20',
+                    declined: 'bg-red-500/10 text-red-600 border-red-500/20',
+                  };
+                  const statusIcons = {
+                    pending: Clock,
+                    approved: CheckCircle2,
+                    declined: XCircle,
+                  };
+                  const StatusIcon = statusIcons[request.status as keyof typeof statusIcons] || Clock;
+                  
+                  return (
+                    <div
+                      key={request._id}
+                      className="p-4 rounded-lg border hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline">
+                              {permissionNames[request.permission] || request.permission}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={statusColors[request.status as keyof typeof statusColors] || ''}
+                            >
+                              <StatusIcon className="h-3 w-3 mr-1" />
+                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>Requested: {moment(request.createdAt).format("MMM DD, YYYY HH:mm")}</span>
+                          </div>
+                          {request.updatedAt && request.status !== 'pending' && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Clock className="h-3.5 w-3.5" />
+                              <span>Responded: {moment(request.updatedAt).format("MMM DD, YYYY HH:mm")}</span>
+                            </div>
+                          )}
+                          {request.adminComment && (
+                            <div className="mt-2 p-2 rounded bg-muted/50">
+                              <p className="text-sm font-medium mb-1">Admin Comment:</p>
+                              <p className="text-sm text-muted-foreground">{request.adminComment}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Shield className="h-8 w-8 text-muted-foreground mb-2 opacity-50" />
+                <p className="text-sm text-muted-foreground">No permission requests</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Request access to features from the permission denied page
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Recent Activity */}
         <Card className="rounded-xl">
           <CardHeader>
@@ -382,6 +519,92 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* View All Requests Dialog */}
+      <Dialog open={viewAllRequestsOpen} onOpenChange={setViewAllRequestsOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-serif flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              All Permission Requests
+            </DialogTitle>
+            <DialogDescription>
+              View all your permission requests and their status
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            {permissionRequests.length > 0 ? (
+              permissionRequests.map((request) => {
+                const permissionNames: { [key: string]: string } = {
+                  notes: 'Notes',
+                  tasks: 'Tasks',
+                  images: 'Images',
+                  games: 'Games',
+                  messages: 'Messages',
+                  news: 'News',
+                  calendar: 'Calendar'
+                };
+                const statusColors = {
+                  pending: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+                  approved: 'bg-green-500/10 text-green-600 border-green-500/20',
+                  declined: 'bg-red-500/10 text-red-600 border-red-500/20',
+                };
+                const statusIcons = {
+                  pending: Clock,
+                  approved: CheckCircle2,
+                  declined: XCircle,
+                };
+                const StatusIcon = statusIcons[request.status as keyof typeof statusIcons] || Clock;
+                
+                return (
+                  <div
+                    key={request._id}
+                    className="p-4 rounded-lg border hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline">
+                            {permissionNames[request.permission] || request.permission}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={statusColors[request.status as keyof typeof statusColors] || ''}
+                          >
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>Requested: {moment(request.createdAt).format("MMM DD, YYYY HH:mm")}</span>
+                        </div>
+                        {request.updatedAt && request.status !== 'pending' && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>Responded: {moment(request.updatedAt).format("MMM DD, YYYY HH:mm")}</span>
+                          </div>
+                        )}
+                        {request.adminComment && (
+                          <div className="mt-2 p-3 rounded bg-muted/50">
+                            <p className="text-sm font-medium mb-1">Admin Comment:</p>
+                            <p className="text-sm text-muted-foreground">{request.adminComment}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Shield className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+                <p className="text-muted-foreground">No permission requests</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

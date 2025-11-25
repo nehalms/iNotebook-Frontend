@@ -24,7 +24,7 @@ export default function GamesPage() {
   const { isLoggedIn, permissions } = useSessionStore();
   
   if (!permissions.includes("games")) {
-    return <PermissionDenied />;
+    return <PermissionDenied permission="games" />;
   }
   const { toast } = useToast();
   const [gameStats, setGameStats] = useState<GameStats[]>([]);
