@@ -1,4 +1,4 @@
-import { getApiUrl } from './config';
+import { getApiUrl, getHeaders } from './config';
 import { encryptAES, decryptAES } from '@/lib/utils/aes';
 import { useSessionStore } from '@/store/sessionStore';
 import { handleApiError, type ApiErrorResponse } from '@/lib/utils/api-error-handler';
@@ -20,9 +20,7 @@ export interface UpdateNoteRequest {
 export async function fetchAllNotes(): Promise<Note[]> {
   const response = await fetch(getApiUrl('notes/fetchallnotes'), {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
   });
 
@@ -87,9 +85,7 @@ export async function addNote(data: CreateNoteRequest): Promise<Note> {
 
   const response = await fetch(getApiUrl('notes/addnote'), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
     body: JSON.stringify(encryptedData),
   });
@@ -135,9 +131,7 @@ export async function updateNote(id: string, data: UpdateNoteRequest): Promise<{
 
   const response = await fetch(getApiUrl(`notes/updatenote/${id}`), {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
     body: JSON.stringify(encryptedData),
   });
@@ -170,9 +164,7 @@ export async function updateNote(id: string, data: UpdateNoteRequest): Promise<{
 export async function deleteNote(id: string): Promise<{ Success: string; note: Note }> {
   const response = await fetch(getApiUrl(`notes/deletenote/${id}`), {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
   });
 
@@ -193,9 +185,7 @@ export async function deleteNote(id: string): Promise<{ Success: string; note: N
 export async function saveNoteCoordinates(id: string, xPos: number, yPos: number): Promise<{ status: string; msg: string }> {
   const response = await fetch(getApiUrl(`notes/saveCord/${id}/${xPos}/${yPos}`), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
   });
 

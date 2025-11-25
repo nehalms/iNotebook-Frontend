@@ -18,9 +18,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Eye, EyeOff, CheckCircle2, XCircle, User, Mail, Calendar, Clock, Edit2, Lock, Save, X, Trash2 } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, XCircle, User, Mail, Calendar, Clock, Edit2, Lock, Save, X, Trash2, Shield } from "lucide-react";
 import moment from "moment";
 import { logout } from "@/lib/api/auth";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { sendEnablePinOtp, sendDisablePinOtp, verifyPinOtp, setSecurityPin, disableSecurityPin } from "@/lib/api/securityPin";
+import { getState } from "@/lib/api/auth";
+import { OtpVerification } from "@/components/otp-verification";
+import { SecurityPin } from "@/components/security-pin";
 
 const permissionsArray = {
   Notes: "notes",
@@ -34,12 +47,20 @@ const permissionsArray = {
 
 export default function ProfilePage() {
   const [location, setLocation] = useLocation();
-  const { isLoggedIn } = useSessionStore();
+  const { isLoggedIn, isPinSet, email, setPinSet, setPinVerified } = useSessionStore();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
+  const [showEnableDialog, setShowEnableDialog] = useState(false);
+  const [showDisableDialog, setShowDisableDialog] = useState(false);
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [showPinSetDialog, setShowPinSetDialog] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [isSettingPin, setIsSettingPin] = useState(false);
+  const [isDisablingPin, setIsDisablingPin] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   const [profile, setProfile] = useState({
     id: "",
@@ -87,6 +108,16 @@ export default function ProfilePage() {
         });
         setUpdtProfile({ name: user.name });
         setPermissions(user.permissions || []);
+        // Check pin status and update session store
+        try {
+          const state = await getState();
+          if (state.status === 1) {
+            setPinSet(state.data.isPinSet);
+            setPinVerified(state.data.isPinVerified);
+          }
+        } catch (error) {
+          console.error("Failed to get pin status:", error);
+        }
       } else {
         toast({
           title: "Error",
@@ -235,6 +266,185 @@ export default function ProfilePage() {
     }
   };
 
+  // Security Pin Handlers
+  const handleEnablePinClick = () => {
+    setShowEnableDialog(true);
+  };
+
+  const handleEnablePinConfirm = async () => {
+    setShowEnableDialog(false);
+    setIsSendingOtp(true);
+    try {
+      await sendEnablePinOtp();
+      setShowOtpDialog(true);
+      toast({
+        title: "OTP Sent",
+        description: "OTP has been sent to your email",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleDisablePinClick = () => {
+    setShowDisableDialog(true);
+  };
+
+  const handleDisablePinConfirm = async () => {
+    setShowDisableDialog(false);
+    setIsSendingOtp(true);
+    try {
+      await sendDisablePinOtp();
+      setShowOtpDialog(true);
+      toast({
+        title: "OTP Sent",
+        description: "OTP has been sent to your email",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleOtpVerify = async (code: number) => {
+    setIsVerifyingOtp(true);
+    try {
+      const action = isPinSet ? 'disable' : 'enable';
+      const response = await verifyPinOtp(code.toString(), action);
+      
+      if (response.status === 1 && response.verified) {
+        setIsVerifyingOtp(false);
+        setShowOtpDialog(false);
+        
+        if (action === 'enable') {
+          setShowPinSetDialog(true);
+          toast({
+            title: "OTP Verified",
+            description: "Please set your security pin",
+          });
+        } else {
+          // Disable pin
+          setIsDisablingPin(true);
+          try {
+            await disableSecurityPin();
+            
+            toast({
+              title: "Success",
+              description: "Security pin disabled successfully",
+            });
+            
+            // Get latest state from server and update session store
+            try {
+              const state = await getState();
+              if (state.status === 1) {
+                // Update session store with data from server
+                setPinSet(state.data.isPinSet);
+                setPinVerified(state.data.isPinVerified);
+              }
+            } catch (error) {
+              console.error("Failed to refresh state:", error);
+              // Fallback: update locally if server call fails
+              setPinSet(false);
+              setPinVerified(false);
+            }
+            
+            // Refresh profile to get updated pin status
+            await fetchUserProfile();
+          } catch (error) {
+            toast({
+              title: "Error",
+              description: error instanceof Error ? error.message : "Failed to disable pin",
+              variant: "destructive",
+            });
+          } finally {
+            setIsDisablingPin(false);
+          }
+        }
+      } else {
+        setIsVerifyingOtp(false);
+        toast({
+          title: "Verification Failed",
+          description: response.msg || "Invalid OTP",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      setIsVerifyingOtp(false);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to verify OTP",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleOtpResend = async () => {
+    setIsSendingOtp(true);
+    try {
+      if (isPinSet) {
+        await sendDisablePinOtp();
+      } else {
+        await sendEnablePinOtp();
+      }
+      toast({
+        title: "OTP Sent",
+        description: "A new verification code has been sent to your email",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to resend OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handlePinSetSuccess = async () => {
+    setIsSettingPin(true);
+    try {
+      // Close the dialog first
+      setShowPinSetDialog(false);
+      
+      toast({
+        title: "Success",
+        description: "Security pin enabled successfully. You can verify it when accessing protected data.",
+      });
+      
+      // Get latest state from server and update session store
+      try {
+        const state = await getState();
+        if (state.status === 1) {
+          // Update session store with data from server
+          setPinSet(state.data.isPinSet);
+          setPinVerified(state.data.isPinVerified);
+        }
+      } catch (error) {
+        console.error("Failed to refresh state:", error);
+        // Fallback: update locally if server call fails
+        setPinSet(true);
+        setPinVerified(false);
+      }
+      
+      // Refresh profile to get updated pin status
+      await fetchUserProfile();
+    } finally {
+      setIsSettingPin(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-chart-3/10 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -372,6 +582,49 @@ export default function ProfilePage() {
                       </Badge>
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Security Pin Card */}
+            <Card className="rounded-xl">
+              <CardHeader>
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Security Pin
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div className="space-y-1">
+                      <p className="font-medium">Security Pin Protection</p>
+                      <p className="text-sm text-muted-foreground">
+                        {isPinSet
+                          ? "Your account is protected with a security pin"
+                          : "Enable security pin to protect your sensitive data"}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={isPinSet}
+                      onCheckedChange={(checked) => {
+                        if (checked && !isPinSet) {
+                          handleEnablePinClick();
+                        } else if (!checked && isPinSet) {
+                          handleDisablePinClick();
+                        }
+                      }}
+                      disabled={loading || isSendingOtp || isVerifyingOtp || isSettingPin || isDisablingPin}
+                    />
+                  </div>
+                  {isPinSet && (
+                    <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <p className="text-sm text-green-800 dark:text-green-200 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Security pin is active
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -526,6 +779,105 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Enable Security Pin Dialog */}
+      <Dialog open={showEnableDialog} onOpenChange={setShowEnableDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enable Security Pin</DialogTitle>
+            <DialogDescription>
+              Security pin adds an extra layer of protection to your account. You will be asked to enter your pin when accessing sensitive data.
+              <br /><br />
+              To enable, we will send an OTP to your email for verification. After verification, you will be asked to set a 6-digit security pin.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEnableDialog(false)} disabled={isSendingOtp}>
+              Cancel
+            </Button>
+            <Button onClick={handleEnablePinConfirm} disabled={isSendingOtp}>
+              {isSendingOtp ? "Sending..." : "Continue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable Security Pin Dialog */}
+      <AlertDialog open={showDisableDialog} onOpenChange={setShowDisableDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable Security Pin?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disable security pin? This will remove the extra layer of protection from your account.
+              <br /><br />
+              You will need to verify your email with an OTP to proceed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSendingOtp}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDisablePinConfirm}
+              disabled={isSendingOtp}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isSendingOtp ? "Sending..." : "Continue"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* OTP Verification Dialog */}
+      <Dialog open={showOtpDialog} onOpenChange={(open) => {
+        if (!open && !isVerifyingOtp && !isDisablingPin) {
+          setShowOtpDialog(false);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify Email</DialogTitle>
+            <DialogDescription>
+              Enter the 6-digit code sent to your email
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <OtpVerification
+              onVerify={handleOtpVerify}
+              onResend={handleOtpResend}
+              isLoading={isVerifyingOtp || isDisablingPin}
+              message={isPinSet ? "Enter OTP to disable security pin" : "Enter OTP to enable security pin"}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Pin Dialog */}
+      <Dialog open={showPinSetDialog} onOpenChange={(open) => {
+        // Only allow closing if not currently setting pin
+        if (!open && !isSettingPin) {
+          setShowPinSetDialog(false);
+        }
+      }}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Set Security Pin</DialogTitle>
+            <DialogDescription>
+              Enter a 6-digit security pin to protect your account
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <SecurityPin
+              mode="set"
+              inline={true}
+              onSuccess={handlePinSetSuccess}
+              onCancel={() => {
+                if (!isSettingPin) {
+                  setShowPinSetDialog(false);
+                }
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Account Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

@@ -13,7 +13,7 @@ export function useTasks() {
     queryKey: ["tasks"],
     queryFn: fetchTasks,
     retry: 1,
-    enabled: isPinSet && isPinVerified,
+    enabled: !isPinSet || isPinVerified,
   });
 
   const tasks: Task[] = data?.tasks || [];

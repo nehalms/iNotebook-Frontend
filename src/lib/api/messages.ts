@@ -1,4 +1,4 @@
-import { getApiUrl } from './config';
+import { getApiUrl, getHeaders } from './config';
 import { handleApiError, type ApiErrorResponse } from '@/lib/utils/api-error-handler';
 
 export interface EncryptMessageRequest {
@@ -26,9 +26,7 @@ export interface DecryptMessageResponse {
 export async function encryptMessage(data: EncryptMessageRequest): Promise<EncryptMessageResponse> {
   const response = await fetch(getApiUrl('msg/encrypt'), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
     body: JSON.stringify(data),
   });
@@ -50,9 +48,7 @@ export async function encryptMessage(data: EncryptMessageRequest): Promise<Encry
 export async function decryptMessage(data: DecryptMessageRequest): Promise<DecryptMessageResponse> {
   const response = await fetch(getApiUrl('msg/decrypt'), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
     body: JSON.stringify(data),
   });
