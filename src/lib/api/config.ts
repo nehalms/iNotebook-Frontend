@@ -12,3 +12,12 @@ export const getApiUrl = (endpoint: string): string => {
   return `${API_BASE_URL}/${cleanEndpoint}`;
 };
 
+// Get headers with pin verification status
+export const getHeaders = (): HeadersInit => {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  return headers;
+};
+

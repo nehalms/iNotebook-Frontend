@@ -12,9 +12,10 @@ interface SecurityPinProps {
   mode: "verify" | "set";
   onSuccess: () => void;
   onCancel?: () => void;
+  inline?: boolean;
 }
 
-export function SecurityPin({ mode, onSuccess, onCancel }: SecurityPinProps) {
+export function SecurityPin({ mode, onSuccess, onCancel, inline = false }: SecurityPinProps) {
   const [pin, setPin] = useState<string[]>(new Array(6).fill(""));
   const [confirmPin, setConfirmPin] = useState<string[]>(new Array(6).fill(""));
   const [prevPin, setPrevPin] = useState<string[]>(new Array(6).fill(""));
@@ -245,6 +246,150 @@ export function SecurityPin({ mode, onSuccess, onCancel }: SecurityPinProps) {
     return "Enter the Security pin";
   };
 
+  // If inline (used in dialog), render without full-screen wrapper
+  if (inline) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center space-y-2">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <Lock className="h-6 w-6 text-primary" />
+          </div>
+          <h2 className="text-xl font-bold font-serif">{getTitle()}</h2>
+        </div>
+
+        {isLoading && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+
+        {!isLoading && (
+          <>
+            {isForgotMode && step === "forgot" ? (
+              <div className="space-y-4">
+                <OtpVerification
+                  onVerify={handleVerifyOtp}
+                  onResend={handleResendOtp}
+                  isLoading={isLoading}
+                  message="Enter OTP to reset pin"
+                />
+              </div>
+            ) : !isForgotMode ? (
+              <div className="space-y-4">
+                {step === "confirm" ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-center block text-muted-foreground">
+                        Entered Pin
+                      </label>
+                      <div className="flex gap-1 sm:gap-2 justify-center flex-wrap">
+                        {prevPin.map((value, index) => (
+                          <Input
+                            key={index}
+                            type="password"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={value}
+                            readOnly
+                            className="w-10 h-10 text-center text-lg font-semibold"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-center block text-muted-foreground">
+                        Confirm Pin
+                      </label>
+                      <div className="flex gap-1 sm:gap-2 justify-center flex-wrap">
+                        {confirmPin.map((value, index) => (
+                          <Input
+                            key={index}
+                            ref={(el) => (confirmInputRefs.current[index] = el)}
+                            type="password"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={value}
+                            onChange={(e) => handleChange(e.target as HTMLInputElement, index, true)}
+                            onKeyDown={(e) => handleKeyDown(e, index, true)}
+                            className="w-10 h-10 text-center text-lg font-semibold"
+                          />
+                        ))}
+                      </div>
+                      <div className="flex gap-2 justify-center mt-4">
+                        <Button
+                          onClick={() => handleConfirmPin(confirmPin)}
+                          disabled={confirmPin.some((val) => !val)}
+                          className="flex-1"
+                        >
+                          Confirm
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setConfirmPin(new Array(6).fill(""));
+                            setStep("enter");
+                            setTimeout(() => inputRefs.current[0]?.focus(), 100);
+                          }}
+                        >
+                          Back
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-center block text-muted-foreground">
+                        Enter 6-digit Security Pin
+                      </label>
+                      <div className="flex gap-1 sm:gap-2 justify-center flex-wrap">
+                        {pin.map((value, index) => (
+                          <Input
+                            key={index}
+                            ref={(el) => (inputRefs.current[index] = el)}
+                            type="password"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={value}
+                            onChange={(e) => handleChange(e.target as HTMLInputElement, index)}
+                            onKeyDown={(e) => handleKeyDown(e, index)}
+                            className="w-10 h-10 text-center text-lg font-semibold"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    {error && (
+                      <div className="text-center text-sm text-destructive bg-destructive/10 p-2 rounded">
+                        {error}
+                      </div>
+                    )}
+                    {onCancel && (
+                      <div className="flex justify-center">
+                        <Button variant="outline" onClick={onCancel}>
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <OtpVerification
+                  onVerify={handleVerifyOtp}
+                  onResend={handleResendOtp}
+                  isLoading={isLoading}
+                  message="Enter OTP to reset pin"
+                />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // Full-screen mode (used in App.tsx)
   return (
     <div className="flex items-center justify-center min-h-screen bg-background/80 backdrop-blur-sm p-1">
       <div className="bg-card border rounded-2xl shadow-lg p-4 sm:p-8 max-w-md w-full">

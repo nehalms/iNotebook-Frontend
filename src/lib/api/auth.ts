@@ -46,6 +46,7 @@ export interface GetStateResponse {
     isAdminUser: boolean;
     permissions: string[];
     isPinSet: boolean;
+    isPinVerified: boolean;
   };
 }
 

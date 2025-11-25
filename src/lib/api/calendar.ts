@@ -1,4 +1,4 @@
-import { getApiUrl } from "./config";
+import { getApiUrl, getHeaders } from "./config";
 import { encryptAES, decryptAES } from "@/lib/utils/aes";
 
 export interface CalendarEvent {
@@ -34,9 +34,7 @@ export const getEvents = async (secretKey: string): Promise<GetEventsResponse> =
   try {
     const response = await fetch(getApiUrl("calevents"), {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: getHeaders(),
       credentials: "include",
     });
 
@@ -84,9 +82,7 @@ export const addEvent = async (
 
     const response = await fetch(getApiUrl("calevents/add"), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: getHeaders(),
       credentials: "include",
       body: JSON.stringify(encryptedEvent),
     });
@@ -116,9 +112,7 @@ export const deleteEvent = async (eventId: string): Promise<DeleteEventResponse>
   try {
     const response = await fetch(getApiUrl(`calevents/${eventId}`), {
       method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: getHeaders(),
       credentials: "include",
     });
 

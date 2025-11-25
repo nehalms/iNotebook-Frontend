@@ -92,6 +92,7 @@ function AuthenticatedApp() {
             isAdmin: state.data.isAdminUser,
             permissions: state.data.permissions,
             isPinSet: state.data.isPinSet,
+            isPinVerified: state.data.isPinVerified,
           });
 
           // Fetch secret key for encryption
@@ -99,10 +100,11 @@ function AuthenticatedApp() {
             await useSessionStore.getState().fetchAndSetSecretKey();
           }
 
-          // Show security pin if not set or not verified
-          if (!state.data.isPinSet || !isPinVerified) {
+          // Show security pin only if pin is set AND not verified
+          // If pin is not set (disabled), don't show pin dialog
+          if (state.data.isPinSet && !state.data.isPinVerified) {
             setShowSecurityPin(true);
-          } else if (state.data.isPinSet && isPinVerified) {
+          } else {
             setShowSecurityPin(false);
           }
         }
@@ -120,18 +122,19 @@ function AuthenticatedApp() {
     } else {
       setCheckingPin(false);
     }
-  }, []);
+  }, [isLoggedIn, setLogin, setLogout, setLocation]);
 
   // Watch for pin verification status changes
   useEffect(() => {
-    if (isLoggedIn) {
-      if (isPinSet && isPinVerified) {
-        setShowSecurityPin(false);
-      } else if (!isPinSet || !isPinVerified) {
+    if (isLoggedIn && !isAdmin) {
+      // Only show security pin if pin is set AND not verified
+      if (isPinSet && !isPinVerified) {
         setShowSecurityPin(true);
+      } else {
+        setShowSecurityPin(false);
       }
     }
-  }, [isLoggedIn, isPinSet, isPinVerified]);
+  }, [isLoggedIn, isAdmin, isPinSet, isPinVerified]);
 
   const handleLogout = async () => {
     try {

@@ -16,9 +16,11 @@ interface SessionState {
     isAdmin: boolean;
     permissions: string[];
     isPinSet: boolean;
+    isPinVerified?: boolean;
   }) => void;
   logout: () => void;
   setPinVerified: (verified: boolean) => void;
+  setPinSet: (isSet: boolean) => void;
   setSecretKey: (key: string) => void;
   setLoading: (loading: boolean) => void;
   updatePermissions: (permissions: string[]) => void;
@@ -41,7 +43,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
     isAdmin: data.isAdmin,
     permissions: data.permissions,
     isPinSet: data.isPinSet,
-    isPinVerified: false,
+    isPinVerified: data.isPinVerified ?? false,
   }),
 
   logout: () => set({
@@ -56,8 +58,13 @@ export const useSessionStore = create<SessionState>()((set) => ({
   }),
 
   setPinVerified: (verified) => set({
-    isPinSet: true,
     isPinVerified: verified,
+  }),
+
+  setPinSet: (isSet) => set({
+    isPinSet: isSet,
+    // Only reset isPinVerified if disabling pin
+    isPinVerified: isSet ? false : false,
   }),
 
   setSecretKey: (key) => set({ secretKey: key }),

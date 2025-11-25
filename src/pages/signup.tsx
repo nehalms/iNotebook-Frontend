@@ -150,6 +150,7 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
           isAdmin: false,
           permissions: response.permissions || [],
           isPinSet: response.isPinSet || false,
+          isPinVerified: false,
         });
 
         // Fetch secret key for encryption

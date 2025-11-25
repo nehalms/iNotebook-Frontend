@@ -1,4 +1,4 @@
-import { getApiUrl } from './config';
+import { getApiUrl, getHeaders } from './config';
 import { encryptAES, decryptAES } from '@/lib/utils/aes';
 import { useSessionStore } from '@/store/sessionStore';
 import { handleApiError, type ApiErrorResponse } from '@/lib/utils/api-error-handler';
@@ -34,9 +34,7 @@ export interface FetchTasksResponse {
 export async function fetchTasks(): Promise<FetchTasksResponse> {
   const response = await fetch(getApiUrl('tasks'), {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
   });
 
@@ -144,9 +142,7 @@ export async function addTask(data: CreateTaskRequest): Promise<{ status: number
 
   const response = await fetch(getApiUrl('tasks/addTask'), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
     body: JSON.stringify({ data: backendData }),
   });
@@ -195,9 +191,7 @@ export async function updateTask(id: string, data: UpdateTaskRequest): Promise<{
 
   const response = await fetch(getApiUrl(`tasks/updatetask/${id}`), {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
     body: JSON.stringify({ data: backendData }),
   });
@@ -220,9 +214,7 @@ export async function updateTask(id: string, data: UpdateTaskRequest): Promise<{
 export async function deleteTask(id: string): Promise<{ status: number; msg: string }> {
   const response = await fetch(getApiUrl(`tasks/deletetask/${id}`), {
     method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     credentials: 'include',
   });
 

@@ -187,11 +187,13 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         }
 
         // Update session store
+        // Note: isPinVerified is set to false on login (handled by backend)
         useSessionStore.getState().login({
           email: data.email,
           isAdmin: response.isAdminUser || false,
           permissions: response.permissions || [],
           isPinSet: response.isPinSet || false,
+          isPinVerified: false,
         });
 
         // Fetch secret key for encryption
