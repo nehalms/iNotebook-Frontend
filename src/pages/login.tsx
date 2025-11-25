@@ -24,8 +24,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { OtpVerification } from "@/components/otp-verification";
-import { login } from "@/lib/api/auth";
-import { sendOtpEmail, verifyOtp } from "@/lib/api/email";
+import { login, sendAdminOtp } from "@/lib/api/auth";
+import { verifyOtp } from "@/lib/api/email";
 import { encryptMessage } from "@/lib/utils/encryption";
 import { useSessionStore } from "@/store/sessionStore";
 
@@ -91,15 +91,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
     setIsSendingOtp(true);
     try {
-      await sendOtpEmail(
-        {
-          email: email,
-          cc: [],
-          subject: "Admin Login",
-          text: "",
-        },
-        true // toAdmin = true
-      );
+      // Encrypt email before sending
+      const encryptedEmail = await encryptMessage(email);
+      await sendAdminOtp(encryptedEmail);
       setShowAdminOtp(true);
       setIsAdminVerified(false);
       toast({
@@ -109,7 +103,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to send OTP",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
         variant: "destructive",
       });
     } finally {

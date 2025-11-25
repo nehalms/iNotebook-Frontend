@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Eye, EyeOff, CheckCircle2, XCircle, User, Mail, Calendar, Clock, Edit2, Lock, Save, X, Trash2, Shield } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, XCircle, User, Mail, Calendar, Clock, Edit2, Lock, Save, X, Trash2, Shield, Loader2 } from "lucide-react";
 import moment from "moment";
 import { logout } from "@/lib/api/auth";
 import { Switch } from "@/components/ui/switch";
@@ -272,10 +272,10 @@ export default function ProfilePage() {
   };
 
   const handleEnablePinConfirm = async () => {
-    setShowEnableDialog(false);
     setIsSendingOtp(true);
     try {
       await sendEnablePinOtp();
+      setShowEnableDialog(false);
       setShowOtpDialog(true);
       toast({
         title: "OTP Sent",
@@ -297,10 +297,12 @@ export default function ProfilePage() {
   };
 
   const handleDisablePinConfirm = async () => {
-    setShowDisableDialog(false);
     setIsSendingOtp(true);
     try {
+      console.log("Sending disable pin OTP");
       await sendDisablePinOtp();
+      console.log("OTP sent");
+      setShowDisableDialog(false);
       setShowOtpDialog(true);
       toast({
         title: "OTP Sent",
@@ -781,14 +783,27 @@ export default function ProfilePage() {
       </div>
 
       {/* Enable Security Pin Dialog */}
-      <Dialog open={showEnableDialog} onOpenChange={setShowEnableDialog}>
+      <Dialog open={showEnableDialog} onOpenChange={(open) => {
+        if (!open && !isSendingOtp) {
+          setShowEnableDialog(false);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Enable Security Pin</DialogTitle>
             <DialogDescription>
-              Security pin adds an extra layer of protection to your account. You will be asked to enter your pin when accessing sensitive data.
-              <br /><br />
-              To enable, we will send an OTP to your email for verification. After verification, you will be asked to set a 6-digit security pin.
+              {isSendingOtp ? (
+                <div className="flex items-center gap-2 py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Sending OTP to your email...</span>
+                </div>
+              ) : (
+                <>
+                  Security pin adds an extra layer of protection to your account. You will be asked to enter your pin when accessing sensitive data.
+                  <br /><br />
+                  To enable, we will send an OTP to your email for verification. After verification, you will be asked to set a 6-digit security pin.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -796,43 +811,84 @@ export default function ProfilePage() {
               Cancel
             </Button>
             <Button onClick={handleEnablePinConfirm} disabled={isSendingOtp}>
-              {isSendingOtp ? "Sending..." : "Continue"}
+              {isSendingOtp ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Continue"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Disable Security Pin Dialog */}
-      <AlertDialog open={showDisableDialog} onOpenChange={setShowDisableDialog}>
+      <AlertDialog open={showDisableDialog} onOpenChange={(open) => {
+        if (!open && !isSendingOtp) {
+          setShowDisableDialog(false);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Disable Security Pin?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to disable security pin? This will remove the extra layer of protection from your account.
-              <br /><br />
-              You will need to verify your email with an OTP to proceed.
+              {isSendingOtp ? (
+                <div className="flex items-center gap-2 py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <span className="font-medium">Sending OTP to your email...</span>
+                </div>
+              ) : (
+                <>
+                  Are you sure you want to disable security pin? This will remove the extra layer of protection from your account.
+                  <br /><br />
+                  You will need to verify your email with an OTP to proceed.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSendingOtp}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            <Button
               onClick={handleDisablePinConfirm}
               disabled={isSendingOtp}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isSendingOtp ? "Sending..." : "Continue"}
-            </AlertDialogAction>
+              {isSendingOtp ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Continue"
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* OTP Verification Dialog */}
       <Dialog open={showOtpDialog} onOpenChange={(open) => {
-        if (!open && !isVerifyingOtp && !isDisablingPin) {
+        // Only allow closing if not verifying, disabling, or sending OTP
+        // This prevents closing on outside click or escape key during operations
+        if (!open && !isVerifyingOtp && !isDisablingPin && !isSendingOtp) {
           setShowOtpDialog(false);
         }
       }}>
-        <DialogContent>
+        <DialogContent 
+          onInteractOutside={(e) => {
+            // Prevent closing on outside click
+            e.preventDefault();
+          }} 
+          onEscapeKeyDown={(e) => {
+            // Prevent closing on Escape key if verifying, disabling, or sending
+            if (isVerifyingOtp || isDisablingPin || isSendingOtp) {
+              e.preventDefault();
+            }
+          }}
+          className={isVerifyingOtp || isDisablingPin || isSendingOtp ? "[&>button]:hidden" : ""}
+        >
           <DialogHeader>
             <DialogTitle>Verify Email</DialogTitle>
             <DialogDescription>
@@ -847,6 +903,19 @@ export default function ProfilePage() {
               message={isPinSet ? "Enter OTP to disable security pin" : "Enter OTP to enable security pin"}
             />
           </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!isVerifyingOtp && !isDisablingPin && !isSendingOtp) {
+                  setShowOtpDialog(false);
+                }
+              }}
+              disabled={isVerifyingOtp || isDisablingPin || isSendingOtp}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

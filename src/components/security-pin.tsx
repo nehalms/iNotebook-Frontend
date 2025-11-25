@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Lock, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { OtpVerification } from "@/components/otp-verification";
-import { verifySecurityPin, setSecurityPin } from "@/lib/api/securityPin";
-import { sendOtpEmail, verifyOtp } from "@/lib/api/email";
+import { verifySecurityPin, setSecurityPin, sendForgotPinOtp } from "@/lib/api/securityPin";
+import { verifyOtp } from "@/lib/api/email";
 import { useSessionStore } from "@/store/sessionStore";
 
 interface SecurityPinProps {
@@ -154,23 +154,9 @@ export function SecurityPin({ mode, onSuccess, onCancel, inline = false }: Secur
   };
 
   const handleForgotPin = async () => {
-    if (!email) {
-      toast({
-        title: "Error",
-        description: "Email not found",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
-      await sendOtpEmail({
-        email: email,
-        cc: [],
-        subject: "Reset security pin",
-        text: "",
-      });
+      await sendForgotPinOtp();
       setIsForgotMode(true);
       setStep("forgot");
       setPin(new Array(6).fill(""));
@@ -181,7 +167,7 @@ export function SecurityPin({ mode, onSuccess, onCancel, inline = false }: Secur
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to send OTP",
+        description: error instanceof Error ? error.message : "Failed to send OTP",
         variant: "destructive",
       });
     } finally {
