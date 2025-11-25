@@ -599,7 +599,7 @@ export default function FourInRowPage() {
     return (
       <div
         key={`${row}-${col}`}
-        className={`w-12 h-12 rounded-full border-2 cursor-pointer hover:border-primary transition-all flex-shrink-0 relative ${
+        className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full border-2 cursor-pointer hover:border-primary transition-all flex-shrink-0 relative aspect-square ${
           isWinningCell 
             ? "border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]" 
             : "border-border"
@@ -612,7 +612,7 @@ export default function FourInRowPage() {
       >
         {isFilled ? (
           <div
-            className="absolute inset-1 rounded-full"
+            className="absolute inset-0.5 sm:inset-1 rounded-full"
             style={{
               backgroundColor: color,
               animation: "dropDisc 0.5s ease-out",
@@ -657,8 +657,8 @@ export default function FourInRowPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
+          <div className="lg:col-span-3">
             <Card className="rounded-xl">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -679,8 +679,8 @@ export default function FourInRowPage() {
                         You are player {player} | Current Turn: {currTurn}
                       </Badge>
                     </div>
-                    <div className="flex justify-center p-2 sm:p-3 md:p-4 lg:p-6 rounded-xl bg-primary/5 w-full min-w-0 overflow-x-auto">
-                      <div className="inline-block min-w-0">
+                    <div className="flex justify-center p-2 sm:p-3 md:p-4 lg:p-6 rounded-xl bg-primary/5 w-full overflow-x-auto max-w-full">
+                      <div className="inline-block max-w-full">
                         <div className="space-y-0.5 sm:space-y-1">
                           {board.map((row, rowIndex) => (
                             <div key={rowIndex} className="flex gap-0.5 sm:gap-1 md:gap-1.5 justify-center flex-nowrap">
