@@ -895,7 +895,7 @@ export default function ProfilePage() {
               Enter the 6-digit code sent to your email
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 w-full max-w-full overflow-visible min-[350px]:overflow-hidden">
             <OtpVerification
               onVerify={handleOtpVerify}
               onResend={handleOtpResend}

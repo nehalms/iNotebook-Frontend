@@ -86,10 +86,10 @@ export function OtpVerification({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       <label className="text-sm font-medium">{message}</label>
-      <div className="space-y-3">
-        <div className="flex gap-2 justify-center">
+      <div className="space-y-3 w-full">
+        <div className="flex gap-1 min-[350px]:gap-1.5 sm:gap-2 justify-center items-center w-full max-w-full overflow-visible">
           {otp.map((value, index) => (
             <Input
               key={index}
@@ -100,7 +100,7 @@ export function OtpVerification({
               value={value}
               onChange={(e) => handleChange(e.target, index)}
               onKeyDown={(e) => handleKeyDown(e, index)}
-              className="h-12 w-12 text-center text-lg font-semibold"
+              className="h-9 min-[350px]:h-10 sm:h-12 w-9 min-[350px]:w-10 sm:w-12 min-w-[2.25rem] min-[350px]:min-w-[2.5rem] sm:min-w-[3rem] flex-shrink-0 text-center text-sm min-[350px]:text-base sm:text-lg font-semibold"
               disabled={isLoading}
               data-testid={`otp-input-${index}`}
             />

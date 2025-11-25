@@ -286,7 +286,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               )}
 
               {isAdminUser && !isAdminVerified && showAdminOtp && (
-                <div className="p-4 border rounded-lg bg-muted/50">
+                <div className="p-4 border rounded-lg bg-muted/50 w-full max-w-full overflow-visible min-[350px]:overflow-hidden">
                   <OtpVerification
                     onVerify={handleVerifyAdminOtp}
                     onResend={handleResendAdminOtp}
