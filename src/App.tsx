@@ -1,6 +1,7 @@
 import { Switch, Route, useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { logout as apiLogout, getState } from "@/lib/api/auth";
+import { getUserProfile } from "@/lib/api/profile";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -36,6 +37,7 @@ function AuthenticatedApp() {
   const { isLoggedIn, email, isAdmin, isPinSet, isPinVerified, login: setLogin, logout: setLogout } = useSessionStore();
   const [showSecurityPin, setShowSecurityPin] = useState(false);
   const [checkingPin, setCheckingPin] = useState(true);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn || isAdmin) return;
@@ -137,6 +139,23 @@ function AuthenticatedApp() {
     }
   }, [isLoggedIn, isAdmin, isPinSet, isPinVerified]);
 
+  // Fetch user profile to get name
+  useEffect(() => {
+    const fetchUserName = async () => {
+      if (isLoggedIn && !checkingPin) {
+        try {
+          const response = await getUserProfile();
+          if (response.status === 1 && response.user) {
+            setUserName(response.user.name);
+          }
+        } catch (error) {
+          console.error("Failed to fetch user profile:", error);
+        }
+      }
+    };
+    fetchUserName();
+  }, [isLoggedIn, checkingPin]);
+
   const handleLogout = async () => {
     try {
       await apiLogout();
@@ -159,7 +178,8 @@ function AuthenticatedApp() {
   };
 
   const user = email ? { 
-    username: email, 
+    username: userName || email, 
+    name: userName,
     isAdmin 
   } : null;
 

@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface AppSidebarProps {
-  user?: { username: string; isAdmin: boolean } | null;
+  user?: { username: string; name?: string; isAdmin: boolean } | null;
   onLogout?: () => void;
 }
 
@@ -138,13 +138,13 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
               <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                 <Avatar className="h-9 w-9">
                   <AvatarFallback className="bg-primary text-primary-foreground">
-                    {user.username.substring(0, 2).toUpperCase()}
+                    {(user.name || user.username).substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{user.username}</p>
+                  <p className="text-sm font-medium truncate">{user.name || user.username}</p>
                   <p className="text-xs text-muted-foreground">
-                    {user.isAdmin ? "Administrator" : "User"}
+                    <span className="font-medium">Profile</span> • {user.isAdmin ? "Administrator" : "User"}
                   </p>
                 </div>
                 <User className="h-4 w-4 text-muted-foreground" />
