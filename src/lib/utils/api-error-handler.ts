@@ -1,4 +1,5 @@
 import { useSessionStore } from '@/store/sessionStore';
+import { queryClient } from '@/lib/queryClient';
 
 export interface ApiErrorResponse {
   sessionexpired?: boolean;
@@ -14,6 +15,8 @@ export interface ApiErrorResponse {
 export function handleApiError(response: Response, data?: ApiErrorResponse): boolean {
   // Check for 401 status or sessionexpired flag
   if (response.status === 401 || data?.sessionexpired) {
+    // Clear React Query cache to prevent showing previous user's data
+    queryClient.clear();
     useSessionStore.getState().logout();
     // Redirect to login
     window.location.href = '/login';

@@ -143,6 +143,8 @@ function AuthenticatedApp() {
     } catch (error) {
       console.error("Logout error:", error);
     }
+    // Clear React Query cache to prevent showing previous user's data
+    queryClient.clear();
     setLogout();
     setLocation("/login");
   };
@@ -242,9 +244,13 @@ function Router() {
             isPinSet: state.data.isPinSet,
           });
         } else {
+          // Clear React Query cache to prevent showing previous user's data
+          queryClient.clear();
           useSessionStore.getState().logout();
         }
       } catch (error) {
+        // Clear React Query cache to prevent showing previous user's data
+        queryClient.clear();
         useSessionStore.getState().logout();
       } finally {
         setIsCheckingAuth(false);

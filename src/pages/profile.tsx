@@ -21,6 +21,7 @@ import {
 import { Eye, EyeOff, CheckCircle2, XCircle, User, Mail, Calendar, Clock, Edit2, Lock, Save, X, Trash2, Shield, Loader2 } from "lucide-react";
 import moment from "moment";
 import { logout } from "@/lib/api/auth";
+import { queryClient } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -244,6 +245,8 @@ export default function ProfilePage() {
         });
         // Logout and redirect to login
         await logout();
+        // Clear React Query cache to prevent showing previous user's data
+        queryClient.clear();
         useSessionStore.getState().logout();
         setLocation("/login");
       } else {

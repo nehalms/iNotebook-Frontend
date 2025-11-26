@@ -28,6 +28,7 @@ import { login, sendAdminOtp } from "@/lib/api/auth";
 import { verifyOtp } from "@/lib/api/email";
 import { encryptMessage } from "@/lib/utils/encryption";
 import { useSessionStore } from "@/store/sessionStore";
+import { queryClient } from "@/lib/queryClient";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -180,6 +181,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           return;
         }
 
+        // Clear React Query cache to ensure fresh data for the new user
+        queryClient.clear();
+        
         // Update session store
         // Note: isPinVerified is set to false on login (handled by backend)
         useSessionStore.getState().login({
