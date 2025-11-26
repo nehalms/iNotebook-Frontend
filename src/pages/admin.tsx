@@ -143,6 +143,7 @@ export default function AdminPage() {
   const [requestToRespond, setRequestToRespond] = useState<PermissionRequest | null>(null);
   const [responseComment, setResponseComment] = useState("");
   const [isResponding, setIsResponding] = useState(false);
+  const [shouldGrantPermission, setShouldGrantPermission] = useState(true);
   const [requestStatusFilter, setRequestStatusFilter] = useState<'all' | 'pending' | 'approved' | 'declined'>('all');
   const [requestSearchQuery, setRequestSearchQuery] = useState("");
   const [requestSortField, setRequestSortField] = useState<keyof PermissionRequest>('createdAt');
@@ -682,6 +683,27 @@ export default function AdminPage() {
     try {
       const response = await respondToRequest(requestToRespond._id, action, responseComment);
       if (response.success) {
+        // If approved and should grant permission, toggle the permission
+        if (action === 'approve' && shouldGrantPermission) {
+          const user = typeof requestToRespond.user === 'object' ? requestToRespond.user : null;
+          if (user && user._id) {
+            const permissionIndex = PERMISSIONS[requestToRespond.permission as keyof typeof PERMISSIONS];
+            if (permissionIndex) {
+              await togglePermission(user._id, permissionIndex, true);
+            }
+          }
+        }
+        // If declined and should remove permission, toggle the permission off
+        if (action === 'decline' && shouldGrantPermission) {
+          const user = typeof requestToRespond.user === 'object' ? requestToRespond.user : null;
+          if (user && user._id) {
+            const permissionIndex = PERMISSIONS[requestToRespond.permission as keyof typeof PERMISSIONS];
+            if (permissionIndex) {
+              await togglePermission(user._id, permissionIndex, false);
+            }
+          }
+        }
+        
         toast({
           title: "Success",
           description: response.msg || `Request ${action}d successfully`,
@@ -689,7 +711,9 @@ export default function AdminPage() {
         setRespondDialogOpen(false);
         setRequestToRespond(null);
         setResponseComment("");
+        setShouldGrantPermission(true);
         fetchPermissionRequests();
+        fetchPermissions(); // Refresh permissions tab
       } else {
         toast({
           title: "Error",
@@ -1909,35 +1933,65 @@ export default function AdminPage() {
 
       {/* Respond to Request Dialog */}
       <AlertDialog open={respondDialogOpen} onOpenChange={setRespondDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Respond to Permission Request</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="space-y-4">
               {requestToRespond && (
                 <>
-                  <p className="mb-2">
-                    User: <strong>{typeof requestToRespond.user === 'object' ? requestToRespond.user.name : 'Unknown'}</strong>
-                  </p>
-                  <p className="mb-4">
-                    Requested: <strong>{requestToRespond.permission}</strong>
-                  </p>
+                  <div className="space-y-2">
+                    <p>
+                      <strong>User:</strong> {typeof requestToRespond.user === 'object' ? requestToRespond.user.name : 'Unknown'}
+                    </p>
+                    <p>
+                      <strong>Email:</strong> {typeof requestToRespond.user === 'object' ? requestToRespond.user.email : 'Unknown'}
+                    </p>
+                    <p>
+                      <strong>Requested Feature:</strong> <Badge variant="outline">{requestToRespond.permission}</Badge>
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="comment">Comment (optional)</Label>
+                    <Textarea
+                      id="comment"
+                      value={responseComment}
+                      onChange={(e) => setResponseComment(e.target.value)}
+                      placeholder="Add a comment for the user..."
+                      className="min-h-[100px]"
+                      disabled={isResponding}
+                    />
+                  </div>
+
+                  <div className="space-y-3 pt-2 border-t">
+                    <Label className="text-base font-semibold">Permission Access</Label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="grantPermission"
+                        checked={shouldGrantPermission}
+                        onChange={(e) => setShouldGrantPermission(e.target.checked)}
+                        disabled={isResponding}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <Label htmlFor="grantPermission" className="text-sm font-normal cursor-pointer">
+                        {shouldGrantPermission 
+                          ? `Grant/Update ${requestToRespond.permission} access when ${requestToRespond.status === 'pending' ? 'approving' : 'responding'}`
+                          : `Only respond to request without changing ${requestToRespond.permission} access`}
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {shouldGrantPermission 
+                        ? `When you approve, the user will automatically receive ${requestToRespond.permission} access. When you decline, the access will be removed if they currently have it.`
+                        : 'The request will be updated but no permission changes will be made. You can manage permissions separately in the Permissions tab.'}
+                    </p>
+                  </div>
                 </>
               )}
-              <div className="space-y-2">
-                <Label htmlFor="comment">Comment (optional)</Label>
-                <Textarea
-                  id="comment"
-                  value={responseComment}
-                  onChange={(e) => setResponseComment(e.target.value)}
-                  placeholder="Add a comment for the user..."
-                  className="min-h-[100px]"
-                  disabled={isResponding}
-                />
-              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setRequestToRespond(null); setResponseComment(""); }} disabled={isResponding}>
+            <AlertDialogCancel onClick={() => { setRequestToRespond(null); setResponseComment(""); setShouldGrantPermission(true); }} disabled={isResponding}>
               Cancel
             </AlertDialogCancel>
             <div className="flex gap-2">

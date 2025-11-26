@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SecurityPin } from "@/components/security-pin";
+import { SpeedInsights } from "@vercel/speed-insights/react"
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import SignupPage from "@/pages/signup";
@@ -296,6 +297,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
+        <SpeedInsights />
         <TooltipProvider>
           <Toaster />
           <Router />
