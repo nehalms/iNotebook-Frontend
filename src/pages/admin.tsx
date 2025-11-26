@@ -62,6 +62,8 @@ import {
   getAnalytics,
   deleteUser,
   toggleAdminStatus,
+  reactivateUser,
+  deactivateUser,
   notifyUserToSetPin,
   createPermissionRequest,
   getAllRequests,
@@ -134,6 +136,16 @@ export default function AdminPage() {
   const [pinNotificationDialogOpen, setPinNotificationDialogOpen] = useState(false);
   const [userToNotify, setUserToNotify] = useState<AdminUser | null>(null);
   const [isNotifying, setIsNotifying] = useState(false);
+  
+  // Reactivate user
+  const [reactivateUserDialogOpen, setReactivateUserDialogOpen] = useState(false);
+  const [userToReactivate, setUserToReactivate] = useState<AdminUser | null>(null);
+  const [isReactivating, setIsReactivating] = useState(false);
+  
+  // Deactivate user
+  const [deactivateUserDialogOpen, setDeactivateUserDialogOpen] = useState(false);
+  const [userToDeactivate, setUserToDeactivate] = useState<AdminUser | null>(null);
+  const [isDeactivating, setIsDeactivating] = useState(false);
   
   // Permission requests
   const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]);
@@ -644,6 +656,72 @@ export default function AdminPage() {
     }
   };
   
+  const handleReactivateUser = async () => {
+    if (!userToReactivate) return;
+    
+    setIsReactivating(true);
+    try {
+      const response = await reactivateUser(userToReactivate.userId);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: response.msg || "User reactivated successfully",
+        });
+        setReactivateUserDialogOpen(false);
+        setUserToReactivate(null);
+        fetchUsers();
+      } else {
+        toast({
+          title: "Error",
+          description: response.error || "Failed to reactivate user",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error reactivating user:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reactivate user",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReactivating(false);
+    }
+  };
+  
+  const handleDeactivateUser = async () => {
+    if (!userToDeactivate) return;
+    
+    setIsDeactivating(true);
+    try {
+      const response = await deactivateUser(userToDeactivate.userId);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: response.msg || "User deactivated successfully",
+        });
+        setDeactivateUserDialogOpen(false);
+        setUserToDeactivate(null);
+        fetchUsers();
+      } else {
+        toast({
+          title: "Error",
+          description: response.error || "Failed to deactivate user",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error deactivating user:", error);
+      toast({
+        title: "Error",
+        description: "Failed to deactivate user",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeactivating(false);
+    }
+  };
+  
   const handleNotifyPin = async () => {
     if (!userToNotify) return;
     
@@ -1080,6 +1158,33 @@ export default function AdminPage() {
                                   title="Notify to set pin"
                                 >
                                   <Mail className="h-4 w-4 text-primary" />
+                                </Button>
+                              )}
+                              {!user.isActive ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setUserToReactivate(user);
+                                    setReactivateUserDialogOpen(true);
+                                  }}
+                                  className="h-8 w-8 text-green-600 hover:text-green-700"
+                                  title="Reactivate user"
+                                >
+                                  <CheckCircle2 className="h-4 w-4" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setUserToDeactivate(user);
+                                    setDeactivateUserDialogOpen(true);
+                                  }}
+                                  className="h-8 w-8 text-orange-600 hover:text-orange-700"
+                                  title="Deactivate user"
+                                >
+                                  <XCircle className="h-4 w-4" />
                                 </Button>
                               )}
                               <Button
@@ -1926,6 +2031,57 @@ export default function AdminPage() {
               disabled={isNotifying}
             >
               {isNotifying ? "Sending..." : "Send Notification"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reactivate User Dialog */}
+      <AlertDialog open={reactivateUserDialogOpen} onOpenChange={setReactivateUserDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reactivate User Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reactivate the account for "{userToReactivate?.name}"? 
+              This will restore their original email address and allow them to log in again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToReactivate(null)} disabled={isReactivating}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReactivateUser}
+              disabled={isReactivating}
+              className="bg-green-600 text-white hover:bg-green-700"
+            >
+              {isReactivating ? "Reactivating..." : "Reactivate User"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Deactivate User Dialog */}
+      <AlertDialog open={deactivateUserDialogOpen} onOpenChange={setDeactivateUserDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate User Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to deactivate the account for "{userToDeactivate?.name}"? 
+              This will append their user ID to their email address and prevent them from logging in. 
+              The account can be reactivated later if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToDeactivate(null)} disabled={isDeactivating}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeactivateUser}
+              disabled={isDeactivating}
+              className="bg-orange-600 text-white hover:bg-orange-700"
+            >
+              {isDeactivating ? "Deactivating..." : "Deactivate User"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

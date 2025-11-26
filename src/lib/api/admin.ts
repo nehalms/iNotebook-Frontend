@@ -371,6 +371,54 @@ export const toggleAdminStatus = async (userId: string): Promise<{ success: bool
   }
 };
 
+// Reactivate user account
+export const reactivateUser = async (userId: string): Promise<{ success: boolean; msg?: string; error?: string }> => {
+  try {
+    const response = await fetch(getApiUrl(`getData/reactivateuser/${userId}`), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to reactivate user");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error reactivating user:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to reactivate user" };
+  }
+};
+
+// Deactivate user account
+export const deactivateUser = async (userId: string): Promise<{ success: boolean; msg?: string; error?: string }> => {
+  try {
+    const response = await fetch(getApiUrl(`getData/deactivateuser/${userId}`), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to deactivate user");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error deactivating user:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to deactivate user" };
+  }
+};
+
 // Notify user to set security pin
 export const notifyUserToSetPin = async (userId: string): Promise<{ success: boolean; msg?: string; error?: string }> => {
   try {
