@@ -141,11 +141,13 @@ export default function AdminPage() {
   const [reactivateUserDialogOpen, setReactivateUserDialogOpen] = useState(false);
   const [userToReactivate, setUserToReactivate] = useState<AdminUser | null>(null);
   const [isReactivating, setIsReactivating] = useState(false);
+  const [notifyOnReactivate, setNotifyOnReactivate] = useState(true);
   
   // Deactivate user
   const [deactivateUserDialogOpen, setDeactivateUserDialogOpen] = useState(false);
   const [userToDeactivate, setUserToDeactivate] = useState<AdminUser | null>(null);
   const [isDeactivating, setIsDeactivating] = useState(false);
+  const [notifyOnDeactivate, setNotifyOnDeactivate] = useState(true);
   
   // Permission requests
   const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]);
@@ -661,7 +663,7 @@ export default function AdminPage() {
     
     setIsReactivating(true);
     try {
-      const response = await reactivateUser(userToReactivate.userId);
+      const response = await reactivateUser(userToReactivate.userId, notifyOnReactivate);
       if (response.success) {
         toast({
           title: "Success",
@@ -669,6 +671,7 @@ export default function AdminPage() {
         });
         setReactivateUserDialogOpen(false);
         setUserToReactivate(null);
+        setNotifyOnReactivate(true);
         fetchUsers();
       } else {
         toast({
@@ -694,7 +697,7 @@ export default function AdminPage() {
     
     setIsDeactivating(true);
     try {
-      const response = await deactivateUser(userToDeactivate.userId);
+      const response = await deactivateUser(userToDeactivate.userId, notifyOnDeactivate);
       if (response.success) {
         toast({
           title: "Success",
@@ -702,6 +705,7 @@ export default function AdminPage() {
         });
         setDeactivateUserDialogOpen(false);
         setUserToDeactivate(null);
+        setNotifyOnDeactivate(true);
         fetchUsers();
       } else {
         toast({
@@ -2037,17 +2041,47 @@ export default function AdminPage() {
       </AlertDialog>
 
       {/* Reactivate User Dialog */}
-      <AlertDialog open={reactivateUserDialogOpen} onOpenChange={setReactivateUserDialogOpen}>
+      <AlertDialog 
+        open={reactivateUserDialogOpen} 
+        onOpenChange={(open) => {
+          setReactivateUserDialogOpen(open);
+          if (!open) {
+            setUserToReactivate(null);
+            setNotifyOnReactivate(true);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Reactivate User Account</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to reactivate the account for "{userToReactivate?.name}"? 
-              This will restore their original email address and allow them to log in again.
+            <AlertDialogDescription className="space-y-4">
+              <p>
+                Are you sure you want to reactivate the account for "{userToReactivate?.name}"? 
+                This will restore their original email address and allow them to log in again.
+              </p>
+              <div className="flex items-center space-x-2 pt-2 border-t">
+                <input
+                  type="checkbox"
+                  id="notifyReactivate"
+                  checked={notifyOnReactivate}
+                  onChange={(e) => setNotifyOnReactivate(e.target.checked)}
+                  disabled={isReactivating}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="notifyReactivate" className="text-sm font-normal cursor-pointer">
+                  Send email notification to user
+                </Label>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setUserToReactivate(null)} disabled={isReactivating}>
+            <AlertDialogCancel 
+              onClick={() => {
+                setUserToReactivate(null);
+                setNotifyOnReactivate(true);
+              }} 
+              disabled={isReactivating}
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
@@ -2062,18 +2096,48 @@ export default function AdminPage() {
       </AlertDialog>
 
       {/* Deactivate User Dialog */}
-      <AlertDialog open={deactivateUserDialogOpen} onOpenChange={setDeactivateUserDialogOpen}>
+      <AlertDialog 
+        open={deactivateUserDialogOpen} 
+        onOpenChange={(open) => {
+          setDeactivateUserDialogOpen(open);
+          if (!open) {
+            setUserToDeactivate(null);
+            setNotifyOnDeactivate(true);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Deactivate User Account</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to deactivate the account for "{userToDeactivate?.name}"? 
-              This will append their user ID to their email address and prevent them from logging in. 
-              The account can be reactivated later if needed.
+            <AlertDialogDescription className="space-y-4">
+              <p>
+                Are you sure you want to deactivate the account for "{userToDeactivate?.name}"? 
+                This will append their user ID to their email address and prevent them from logging in. 
+                The account can be reactivated later if needed.
+              </p>
+              <div className="flex items-center space-x-2 pt-2 border-t">
+                <input
+                  type="checkbox"
+                  id="notifyDeactivate"
+                  checked={notifyOnDeactivate}
+                  onChange={(e) => setNotifyOnDeactivate(e.target.checked)}
+                  disabled={isDeactivating}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="notifyDeactivate" className="text-sm font-normal cursor-pointer">
+                  Send email notification to user
+                </Label>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setUserToDeactivate(null)} disabled={isDeactivating}>
+            <AlertDialogCancel 
+              onClick={() => {
+                setUserToDeactivate(null);
+                setNotifyOnDeactivate(true);
+              }} 
+              disabled={isDeactivating}
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction

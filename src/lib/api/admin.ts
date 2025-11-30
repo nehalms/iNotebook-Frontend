@@ -372,7 +372,7 @@ export const toggleAdminStatus = async (userId: string): Promise<{ success: bool
 };
 
 // Reactivate user account
-export const reactivateUser = async (userId: string): Promise<{ success: boolean; msg?: string; error?: string }> => {
+export const reactivateUser = async (userId: string, notifyUser: boolean = false): Promise<{ success: boolean; msg?: string; error?: string }> => {
   try {
     const response = await fetch(getApiUrl(`getData/reactivateuser/${userId}`), {
       method: "PUT",
@@ -380,6 +380,7 @@ export const reactivateUser = async (userId: string): Promise<{ success: boolean
         "Content-Type": "application/json",
       },
       credentials: "include",
+      body: JSON.stringify({ notifyUser }),
     });
 
     const data = await response.json();
@@ -396,7 +397,7 @@ export const reactivateUser = async (userId: string): Promise<{ success: boolean
 };
 
 // Deactivate user account
-export const deactivateUser = async (userId: string): Promise<{ success: boolean; msg?: string; error?: string }> => {
+export const deactivateUser = async (userId: string, notifyUser: boolean = false): Promise<{ success: boolean; msg?: string; error?: string }> => {
   try {
     const response = await fetch(getApiUrl(`getData/deactivateuser/${userId}`), {
       method: "PUT",
@@ -404,6 +405,7 @@ export const deactivateUser = async (userId: string): Promise<{ success: boolean
         "Content-Type": "application/json",
       },
       credentials: "include",
+      body: JSON.stringify({ notifyUser }),
     });
 
     const data = await response.json();
