@@ -102,6 +102,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         description: "Admin passkey has been sent to your email",
       });
     } catch (error) {
+      setIsLoading(false);
+      setIsAdminUser(false);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to send OTP",

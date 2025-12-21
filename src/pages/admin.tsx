@@ -50,7 +50,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { Loader2 } from "lucide-react";
 import moment from "moment";
 import {
   getUsers,
@@ -80,6 +80,7 @@ import {
 } from "@/components/ui/chart";
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { LiveUsers } from "@/components/live-users";
+import { set } from "date-fns";
 
 const PERMISSIONS = {
   notes: 1,
@@ -162,6 +163,7 @@ export default function AdminPage() {
   const [requestSearchQuery, setRequestSearchQuery] = useState("");
   const [requestSortField, setRequestSortField] = useState<keyof PermissionRequest>('createdAt');
   const [requestSortDirection, setRequestSortDirection] = useState<"asc" | "desc">("desc");
+  const [requestLoading, setRequestLoading] = useState<string | null>(null);
 
   // Permissions
   const [permissionUsers, setPermissionUsers] = useState<PermissionUser[]>([]);
@@ -169,6 +171,7 @@ export default function AdminPage() {
   const [permissionSearchQuery, setPermissionSearchQuery] = useState("");
   const [permissionSortField, setPermissionSortField] = useState<keyof PermissionUser>('name');
   const [permissionSortDirection, setPermissionSortDirection] = useState<"asc" | "desc">("asc");
+  const [isPermLoading, setPermLoading] = useState<string | null>(null);
 
   // Analytics
   const [analyticsData, setAnalyticsData] = useState({
@@ -202,6 +205,7 @@ export default function AdminPage() {
   const fetchPermissionRequests = async (isRefresh = false) => {
     if (isRefresh) setRequestsRefreshing(true);
     try {
+      setRequestLoading(requestStatusFilter);
       const status = requestStatusFilter === 'all' ? undefined : requestStatusFilter;
       const response = await getAllRequests(status);
       if (response.error) {
@@ -222,6 +226,7 @@ export default function AdminPage() {
       });
     } finally {
       if (isRefresh) setRequestsRefreshing(false);
+      setRequestLoading(null);
     }
   };
   
@@ -575,6 +580,7 @@ export default function AdminPage() {
 
   const handlePermissionToggle = async (userId: string, permission: keyof typeof PERMISSIONS, enabled: boolean) => {
     try {
+      setPermLoading(userId + permission);
       const response = await togglePermission(userId, PERMISSIONS[permission], !enabled);
       if (response.status === 1) {
         toast({
@@ -596,11 +602,14 @@ export default function AdminPage() {
         description: "Failed to update permission",
         variant: "destructive",
       });
+    } finally {
+      setPermLoading(null);
     }
   };
 
   const handleToggleAllPermissions = async (userId: string, action: "give all" | "remove all") => {
     try {
+      setPermLoading(userId + action.replace(" ", ""));
       const response = await toggleAllPermissions(userId, action);
       if (response.status === 1) {
         toast({
@@ -622,6 +631,8 @@ export default function AdminPage() {
         description: "Failed to update permissions",
         variant: "destructive",
       });
+    } finally {
+      setPermLoading(null);
     }
   };
   
@@ -1444,7 +1455,9 @@ export default function AdminPage() {
                               className="flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity"
                               onClick={() => handlePermissionToggle(user.userId, "notes", user.notes)}
                             >
-                              {user.notes ? (
+                              { isPermLoading == user.userId + "notes" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : user.notes ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
                                 <XCircle className="h-5 w-5 text-destructive" />
@@ -1456,7 +1469,9 @@ export default function AdminPage() {
                               className="flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity"
                               onClick={() => handlePermissionToggle(user.userId, "tasks", user.tasks)}
                             >
-                              {user.tasks ? (
+                              { isPermLoading == user.userId + "tasks" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : user.tasks ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
                                 <XCircle className="h-5 w-5 text-destructive" />
@@ -1468,7 +1483,9 @@ export default function AdminPage() {
                               className="flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity"
                               onClick={() => handlePermissionToggle(user.userId, "images", user.images)}
                             >
-                              {user.images ? (
+                              { isPermLoading == user.userId + "images" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : user.images ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
                                 <XCircle className="h-5 w-5 text-destructive" />
@@ -1480,7 +1497,9 @@ export default function AdminPage() {
                               className="flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity"
                               onClick={() => handlePermissionToggle(user.userId, "games", user.games)}
                             >
-                              {user.games ? (
+                              { isPermLoading == user.userId + "games" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : user.games ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
                                 <XCircle className="h-5 w-5 text-destructive" />
@@ -1492,7 +1511,9 @@ export default function AdminPage() {
                               className="flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity"
                               onClick={() => handlePermissionToggle(user.userId, "messages", user.messages)}
                             >
-                              {user.messages ? (
+                              { isPermLoading == user.userId + "messages" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : user.messages ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
                                 <XCircle className="h-5 w-5 text-destructive" />
@@ -1504,7 +1525,9 @@ export default function AdminPage() {
                               className="flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity"
                               onClick={() => handlePermissionToggle(user.userId, "news", user.news)}
                             >
-                              {user.news ? (
+                              { isPermLoading == user.userId + "news" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : user.news ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
                                 <XCircle className="h-5 w-5 text-destructive" />
@@ -1516,7 +1539,9 @@ export default function AdminPage() {
                               className="flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity"
                               onClick={() => handlePermissionToggle(user.userId, "calendar", user.calendar)}
                             >
-                              {user.calendar ? (
+                              { isPermLoading == user.userId + "calendar" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : user.calendar ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
                                 <XCircle className="h-5 w-5 text-destructive" />
@@ -1530,14 +1555,20 @@ export default function AdminPage() {
                                 size="sm"
                                 onClick={() => handleToggleAllPermissions(user.userId, "give all")}
                               >
-                                Give All
+                                { isPermLoading == user.userId + "giveall" ? (
+                                  <Loader2 className="h-5 w-5 animate-spin text-green-600" />
+                                ) : "Give All"
+                                }
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleToggleAllPermissions(user.userId, "remove all")}
                               >
-                                Remove All
+                                { isPermLoading == user.userId + "removeall" ? (
+                                  <Loader2 className="h-5 w-5 animate-spin text-red-600" />
+                                ) : "Remove All"
+                                }
                               </Button>
                             </div>
                           </TableCell>
@@ -1593,7 +1624,7 @@ export default function AdminPage() {
                       variant="outline"
                       size="icon"
                       onClick={() => fetchAnalytics("user")}
-                      disabled={loginAnalyticsLoading}
+                      disabled={loginAnalyticsLoading || analyticsLoading}
                       title="Refresh login analytics"
                       className="bg-blue-500 hover:bg-blue-600 text-white border-blue-500"
                     >
@@ -1603,7 +1634,7 @@ export default function AdminPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {loginAnalyticsLoading ? (
+                {loginAnalyticsLoading || analyticsLoading ? (
                   <Skeleton className="h-64 w-full" />
                 ) : loginChartData.length > 0 ? (
                   <ChartContainer
@@ -1662,7 +1693,7 @@ export default function AdminPage() {
                       variant="outline"
                       size="icon"
                       onClick={() => fetchAnalytics("online")}
-                      disabled={onlineAnalyticsLoading}
+                      disabled={onlineAnalyticsLoading || analyticsLoading}
                       title="Refresh online users analytics"
                       className="bg-blue-500 hover:bg-blue-600 text-white border-blue-500"
                     >
@@ -1672,7 +1703,7 @@ export default function AdminPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {onlineAnalyticsLoading ? (
+                {onlineAnalyticsLoading || analyticsLoading ? (
                   <Skeleton className="h-64 w-full" />
                 ) : onlineChartData.length > 0 ? (
                   <ChartContainer
@@ -1772,27 +1803,34 @@ export default function AdminPage() {
                   <Button
                     variant={requestStatusFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
+                    disabled={requestLoading === 'all' || requestsRefreshing}
                     onClick={() => setRequestStatusFilter('all')}
                   >
                     All
                   </Button>
                   <Button
-                    variant={requestStatusFilter === 'pending' ? 'default' : 'outline'}
+                    variant='outline'
+                    className={`${requestStatusFilter === 'pending' ? 'bg-yellow-500 border-yellow-500/20' : ''}`}
                     size="sm"
+                    disabled={requestLoading === 'pending' || requestsRefreshing}
                     onClick={() => setRequestStatusFilter('pending')}
                   >
                     Pending
                   </Button>
                   <Button
-                    variant={requestStatusFilter === 'approved' ? 'default' : 'outline'}
+                    variant='outline'
+                    className={`${requestStatusFilter === 'approved' ? 'bg-green-500 border-green-500/20 text-white' : ''}`}
                     size="sm"
+                    disabled={requestLoading === 'approved' || requestsRefreshing}
                     onClick={() => setRequestStatusFilter('approved')}
                   >
                     Approved
                   </Button>
                   <Button
-                    variant={requestStatusFilter === 'declined' ? 'default' : 'outline'}
+                    variant='outline'
+                    className={`${requestStatusFilter === 'declined' ? 'bg-red-500 border-red-500/20 text-white' : ''}`}
                     size="sm"
+                    disabled={requestLoading === 'declined' || requestsRefreshing}
                     onClick={() => setRequestStatusFilter('declined')}
                   >
                     Declined

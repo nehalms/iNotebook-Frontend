@@ -302,9 +302,7 @@ export default function ProfilePage() {
   const handleDisablePinConfirm = async () => {
     setIsSendingOtp(true);
     try {
-      console.log("Sending disable pin OTP");
       await sendDisablePinOtp();
-      console.log("OTP sent");
       setShowDisableDialog(false);
       setShowOtpDialog(true);
       toast({
