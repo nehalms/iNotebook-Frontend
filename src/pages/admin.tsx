@@ -22,6 +22,7 @@ import {
   Crown,
   Mail,
   MessageSquare,
+  Loader,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -50,7 +51,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
 import moment from "moment";
 import {
   getUsers,
@@ -118,6 +118,8 @@ export default function AdminPage() {
     loginHistoryCount: 0,
     userHistoryCount: 0,
   });
+
+  const [isFetchRequestLoading, setIsFetchRequestLoading] = useState<string | null>(null);
 
   // Game stats
   const [gameStats, setGameStats] = useState<GameStat[]>([]);
@@ -587,7 +589,7 @@ export default function AdminPage() {
           title: "Success",
           description: response.msg || "Permission updated successfully",
         });
-        fetchPermissions();
+        await fetchPermissions();
       } else {
         toast({
           title: "Error",
@@ -616,7 +618,7 @@ export default function AdminPage() {
           title: "Success",
           description: response.msg || "Permissions updated successfully",
         });
-        fetchPermissions();
+        await fetchPermissions();
       } else {
         toast({
           title: "Error",
@@ -648,8 +650,10 @@ export default function AdminPage() {
           description: response.msg || "Admin status updated successfully",
         });
         setAdminToggleDialogOpen(false);
+        setIsFetchRequestLoading(userToToggleAdmin.userId + "admin");
         setUserToToggleAdmin(null);
-        fetchUsers();
+        await fetchUsers();
+        setIsFetchRequestLoading(null);
       } else {
         toast({
           title: "Error",
@@ -681,9 +685,11 @@ export default function AdminPage() {
           description: response.msg || "User reactivated successfully",
         });
         setReactivateUserDialogOpen(false);
+        setIsFetchRequestLoading(userToReactivate.userId + "reactivate");
         setUserToReactivate(null);
         setNotifyOnReactivate(true);
-        fetchUsers();
+        await fetchUsers();
+        setIsFetchRequestLoading(null);
       } else {
         toast({
           title: "Error",
@@ -715,9 +721,11 @@ export default function AdminPage() {
           description: response.msg || "User deactivated successfully",
         });
         setDeactivateUserDialogOpen(false);
+        setIsFetchRequestLoading(userToDeactivate.userId + "deactivate");
         setUserToDeactivate(null);
         setNotifyOnDeactivate(true);
-        fetchUsers();
+        await fetchUsers();
+        setIsFetchRequestLoading(null);
       } else {
         toast({
           title: "Error",
@@ -1159,7 +1167,11 @@ export default function AdminPage() {
                                 className="h-8 w-8"
                                 title={user.isAdmin ? "Revoke Admin" : "Make Admin"}
                               >
-                                <Crown className={`h-4 w-4 ${user.isAdmin ? "text-yellow-500" : "text-muted-foreground"}`} />
+                                { isFetchRequestLoading == user.userId + "admin" ? (
+                                  <Loader className="h-4 w-4 animate-spin" />
+                                ) : ( 
+                                  <Crown className={`h-4 w-4 ${user.isAdmin ? "text-yellow-500" : "text-muted-foreground"}`} />
+                                )}
                               </Button>
                               {!user.isPinSet && (
                                 <Button
@@ -1186,7 +1198,11 @@ export default function AdminPage() {
                                   className="h-8 w-8 text-green-600 hover:text-green-700"
                                   title="Reactivate user"
                                 >
-                                  <CheckCircle2 className="h-4 w-4" />
+                                  { isFetchRequestLoading == user.userId + "reactivate" ? (
+                                    <Loader className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  )}
                                 </Button>
                               ) : (
                                 <Button
@@ -1199,7 +1215,11 @@ export default function AdminPage() {
                                   className="h-8 w-8 text-orange-600 hover:text-orange-700"
                                   title="Deactivate user"
                                 >
-                                  <XCircle className="h-4 w-4" />
+                                  { isFetchRequestLoading == user.userId + "deactivate" ? (
+                                    <Loader className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <XCircle className="h-4 w-4" />
+                                  )}
                                 </Button>
                               )}
                               <Button
@@ -1456,7 +1476,7 @@ export default function AdminPage() {
                               onClick={() => handlePermissionToggle(user.userId, "notes", user.notes)}
                             >
                               { isPermLoading == user.userId + "notes" ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <Loader className="h-5 w-5 animate-spin" />
                               ) : user.notes ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
@@ -1470,7 +1490,7 @@ export default function AdminPage() {
                               onClick={() => handlePermissionToggle(user.userId, "tasks", user.tasks)}
                             >
                               { isPermLoading == user.userId + "tasks" ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <Loader className="h-5 w-5 animate-spin" />
                               ) : user.tasks ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
@@ -1484,7 +1504,7 @@ export default function AdminPage() {
                               onClick={() => handlePermissionToggle(user.userId, "images", user.images)}
                             >
                               { isPermLoading == user.userId + "images" ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <Loader className="h-5 w-5 animate-spin" />
                               ) : user.images ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
@@ -1498,7 +1518,7 @@ export default function AdminPage() {
                               onClick={() => handlePermissionToggle(user.userId, "games", user.games)}
                             >
                               { isPermLoading == user.userId + "games" ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <Loader className="h-5 w-5 animate-spin" />
                               ) : user.games ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
@@ -1512,7 +1532,7 @@ export default function AdminPage() {
                               onClick={() => handlePermissionToggle(user.userId, "messages", user.messages)}
                             >
                               { isPermLoading == user.userId + "messages" ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <Loader className="h-5 w-5 animate-spin" />
                               ) : user.messages ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
@@ -1526,7 +1546,7 @@ export default function AdminPage() {
                               onClick={() => handlePermissionToggle(user.userId, "news", user.news)}
                             >
                               { isPermLoading == user.userId + "news" ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <Loader className="h-5 w-5 animate-spin" />
                               ) : user.news ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
@@ -1540,7 +1560,7 @@ export default function AdminPage() {
                               onClick={() => handlePermissionToggle(user.userId, "calendar", user.calendar)}
                             >
                               { isPermLoading == user.userId + "calendar" ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <Loader className="h-5 w-5 animate-spin" />
                               ) : user.calendar ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                               ) : (
@@ -1556,7 +1576,7 @@ export default function AdminPage() {
                                 onClick={() => handleToggleAllPermissions(user.userId, "give all")}
                               >
                                 { isPermLoading == user.userId + "giveall" ? (
-                                  <Loader2 className="h-5 w-5 animate-spin text-green-600" />
+                                  <Loader className="h-5 w-5 animate-spin text-green-600" />
                                 ) : "Give All"
                                 }
                               </Button>
@@ -1566,7 +1586,7 @@ export default function AdminPage() {
                                 onClick={() => handleToggleAllPermissions(user.userId, "remove all")}
                               >
                                 { isPermLoading == user.userId + "removeall" ? (
-                                  <Loader2 className="h-5 w-5 animate-spin text-red-600" />
+                                  <Loader className="h-5 w-5 animate-spin text-red-600" />
                                 ) : "Remove All"
                                 }
                               </Button>
@@ -2027,7 +2047,11 @@ export default function AdminPage() {
       </AlertDialog>
 
       {/* Admin Toggle Dialog */}
-      <AlertDialog open={adminToggleDialogOpen} onOpenChange={setAdminToggleDialogOpen}>
+      <AlertDialog open={adminToggleDialogOpen} onOpenChange={(open) => {
+        if (!open && !isTogglingAdmin) {
+          setAdminToggleDialogOpen(false);
+        }}
+      }>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -2044,19 +2068,23 @@ export default function AdminPage() {
             <AlertDialogCancel onClick={() => setUserToToggleAdmin(null)} disabled={isTogglingAdmin}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
               onClick={handleToggleAdmin}
               disabled={isTogglingAdmin}
               className={userToToggleAdmin?.isAdmin ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
             >
               {isTogglingAdmin ? "Processing..." : userToToggleAdmin?.isAdmin ? "Revoke Admin" : "Make Admin"}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Pin Notification Dialog */}
-      <AlertDialog open={pinNotificationDialogOpen} onOpenChange={setPinNotificationDialogOpen}>
+      <AlertDialog open={pinNotificationDialogOpen} onOpenChange={(open) => {
+        if (!open && !isNotifying) {
+          setPinNotificationDialogOpen(false);
+        }}
+      }>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Notify User to Set Security Pin</AlertDialogTitle>
@@ -2068,12 +2096,12 @@ export default function AdminPage() {
             <AlertDialogCancel onClick={() => setUserToNotify(null)} disabled={isNotifying}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
               onClick={handleNotifyPin}
               disabled={isNotifying}
             >
               {isNotifying ? "Sending..." : "Send Notification"}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -2082,8 +2110,8 @@ export default function AdminPage() {
       <AlertDialog 
         open={reactivateUserDialogOpen} 
         onOpenChange={(open) => {
-          setReactivateUserDialogOpen(open);
-          if (!open) {
+          if (!open && !isReactivating) {
+            setReactivateUserDialogOpen(false);
             setUserToReactivate(null);
             setNotifyOnReactivate(true);
           }
@@ -2122,13 +2150,13 @@ export default function AdminPage() {
             >
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
               onClick={handleReactivateUser}
               disabled={isReactivating}
               className="bg-green-600 text-white hover:bg-green-700"
             >
               {isReactivating ? "Reactivating..." : "Reactivate User"}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -2137,8 +2165,8 @@ export default function AdminPage() {
       <AlertDialog 
         open={deactivateUserDialogOpen} 
         onOpenChange={(open) => {
-          setDeactivateUserDialogOpen(open);
-          if (!open) {
+          if (!open && !isDeactivating) {
+            setDeactivateUserDialogOpen(false);
             setUserToDeactivate(null);
             setNotifyOnDeactivate(true);
           }
@@ -2178,13 +2206,13 @@ export default function AdminPage() {
             >
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
               onClick={handleDeactivateUser}
               disabled={isDeactivating}
               className="bg-orange-600 text-white hover:bg-orange-700"
             >
               {isDeactivating ? "Deactivating..." : "Deactivate User"}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
