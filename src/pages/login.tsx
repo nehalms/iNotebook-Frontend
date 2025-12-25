@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import { Link, useLocation } from "wouter";
 import { Lock, CheckCircle2, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -50,6 +51,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
 
   // Get email from query parameter
   const getEmailFromQuery = () => {
@@ -125,12 +127,19 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       });
 
       if (response.success && response.verified) {
-        setIsAdminVerified(true);
-        setShowAdminOtp(false);
+        // Use flushSync to ensure state update is synchronous before clicking button
+        flushSync(() => {
+          setIsAdminVerified(true);
+          setShowAdminOtp(false);
+        });
         toast({
           title: "Admin Passkey Verified",
           description: "Admin passkey verified successfully",
         });
+        // Small delay to ensure DOM is updated
+        setTimeout(() => {
+          submitButtonRef.current?.click();
+        }, 50);
       } else {
         toast({
           title: "Verification Failed",
@@ -317,6 +326,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 className="w-full h-12 text-base"
                 disabled={isLoading || isSendingOtp || isVerifyingOtp || (isAdminUser && !isAdminVerified)}
                 data-testid="button-login"
+                ref={submitButtonRef}
               >
                 { 
                   isLoading ? "Signing in..." : 

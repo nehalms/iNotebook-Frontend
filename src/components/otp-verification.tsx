@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Mail } from "lucide-react";
+import { CheckCircle2, Loader2, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface OtpVerificationProps {
   onVerify: (code: number) => Promise<void>;
   onResend: () => Promise<void>;
   isLoading?: boolean;
+  isVerifying?: boolean;
   message?: string;
 }
 
@@ -15,6 +16,7 @@ export function OtpVerification({
   onVerify,
   onResend,
   isLoading = false,
+  isVerifying = false,
   message = "Enter the verification code",
 }: OtpVerificationProps) {
   const [otp, setOtp] = useState<string[]>(new Array(6).fill(""));
@@ -40,8 +42,10 @@ export function OtpVerification({
     }
 
     // Auto-verify when 6th digit is entered
-    if (index === 5 && element.value) {
-      handleVerify(newOtp);
+    if (index === 5 && element.value && newOtp.join("").length === 6) {
+      setTimeout(() => {
+        handleVerify(newOtp);
+      }, 100);
     }
   };
 
@@ -51,11 +55,11 @@ export function OtpVerification({
     }
   };
 
-  const handleVerify = async (otpArray: string[]) => {
-    const code = otpArray.join("");
-    if (code.length === 6) {
+  const handleVerify = async (otpArray?: string[]) => {
+    const codeToVerify = otpArray ? otpArray.join("") : otp.join("");
+    if (codeToVerify.length === 6) {
       try {
-        await onVerify(parseInt(code));
+        await onVerify(parseInt(codeToVerify));
       } catch (error) {
         // Reset OTP on error
         setOtp(new Array(6).fill(""));
@@ -106,22 +110,36 @@ export function OtpVerification({
             />
           ))}
         </div>
-        <div className="flex justify-center">
-          {isLoading ? (
+        <div className="flex justify-center gap-2">
+          {isLoading || isVerifying ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleResend}
-              disabled={isResending}
-              className="gap-2"
-              data-testid="button-resend-otp"
-            >
-              <Mail className="h-4 w-4" />
-              {isResending ? "Sending..." : "Resend"}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleResend}
+                disabled={isResending}
+                className="gap-2"
+                data-testid="button-resend-otp"
+              >
+                <Mail className="h-4 w-4" />
+                {isResending ? "Sending..." : "Resend"}
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => handleVerify()}
+                disabled={otp.join("").length !== 6 || isResending}
+                className="gap-2"
+                data-testid="button-verify-otp"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {isVerifying ? "Verifying..." : "Verify"}
+              </Button>
+            </>
           )}
         </div>
       </div>
