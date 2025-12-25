@@ -23,6 +23,8 @@ import {
   Mail,
   MessageSquare,
   Loader,
+  Database as DatabaseIcon,
+  Trash2 as TrashIcon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -68,10 +70,13 @@ import {
   createPermissionRequest,
   getAllRequests,
   respondToRequest,
+  getDatabaseCounts,
+  deleteCollection,
   type AdminUser,
   type GameStat,
   type PermissionUser,
   type PermissionRequest,
+  type DatabaseCounts,
 } from "@/lib/api/admin";
 import {
   ChartContainer,
@@ -167,6 +172,14 @@ export default function AdminPage() {
   const [requestSortDirection, setRequestSortDirection] = useState<"asc" | "desc">("desc");
   const [requestLoading, setRequestLoading] = useState<string | null>(null);
 
+  // Database Management
+  const [databaseCounts, setDatabaseCounts] = useState<DatabaseCounts>({});
+  const [databaseLoading, setDatabaseLoading] = useState(false);
+  const [databaseRefreshing, setDatabaseRefreshing] = useState(false);
+  const [deleteCollectionDialogOpen, setDeleteCollectionDialogOpen] = useState(false);
+  const [collectionToDelete, setCollectionToDelete] = useState<string | null>(null);
+  const [isDeletingCollection, setIsDeletingCollection] = useState(false);
+
   // Permissions
   const [permissionUsers, setPermissionUsers] = useState<PermissionUser[]>([]);
   const [filteredPermissionUsers, setFilteredPermissionUsers] = useState<PermissionUser[]>([]);
@@ -200,8 +213,68 @@ export default function AdminPage() {
 
   const fetchAllData = async () => {
     setIsLoading(true);
-    await Promise.all([fetchUsers(), fetchGameStats(), fetchPermissions(), fetchAnalytics(), fetchPermissionRequests()]);
+    await Promise.all([fetchUsers(), fetchGameStats(), fetchPermissions(), fetchAnalytics(), fetchPermissionRequests(), fetchDatabaseCounts()]);
     setIsLoading(false);
+  };
+
+  const fetchDatabaseCounts = async (isRefresh = false) => {
+    if (isRefresh) setDatabaseRefreshing(true);
+    setDatabaseLoading(true);
+    try {
+      const response = await getDatabaseCounts();
+      if (response.success && response.counts) {
+        setDatabaseCounts(response.counts);
+      } else {
+        toast({
+          title: "Error",
+          description: response.error || "Failed to fetch database counts",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching database counts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch database counts",
+        variant: "destructive",
+      });
+    } finally {
+      setDatabaseLoading(false);
+      if (isRefresh) setDatabaseRefreshing(false);
+    }
+  };
+
+  const handleDeleteCollection = async () => {
+    if (!collectionToDelete) return;
+
+    setIsDeletingCollection(true);
+    try {
+      const response = await deleteCollection(collectionToDelete);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: response.message || `Successfully deleted ${response.deletedCount || 0} documents from ${collectionToDelete}`,
+        });
+        setDeleteCollectionDialogOpen(false);
+        setCollectionToDelete(null);
+        await fetchDatabaseCounts();
+      } else {
+        toast({
+          title: "Error",
+          description: response.error || "Failed to delete collection",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting collection:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete collection",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingCollection(false);
+    }
   };
   
   const fetchPermissionRequests = async (isRefresh = false) => {
@@ -975,7 +1048,7 @@ export default function AdminPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex w-full min-w-max sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 h-auto">
+          <TabsList className="inline-flex w-full min-w-max sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 h-auto">
             <TabsTrigger value="users" data-testid="tab-users" className="whitespace-nowrap">
               Users
             </TabsTrigger>
@@ -996,6 +1069,9 @@ export default function AdminPage() {
             </TabsTrigger>
             <TabsTrigger value="requests" data-testid="tab-requests" className="whitespace-nowrap">
               Requests
+            </TabsTrigger>
+            <TabsTrigger value="database" data-testid="tab-database" className="whitespace-nowrap">
+              Database
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1791,6 +1867,102 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="database" className="space-y-4">
+          <Card className="rounded-xl">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl font-serif flex items-center gap-2">
+                  <DatabaseIcon className="h-6 w-6" />
+                  Database Management
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => fetchDatabaseCounts(true)}
+                  disabled={databaseRefreshing || databaseLoading}
+                  title="Refresh counts"
+                >
+                  <RotateCw className={`h-4 w-4 ${databaseRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {databaseLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : Object.keys(databaseCounts).length > 0 ? (
+                <div className="rounded-lg border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Collection Name</TableHead>
+                        <TableHead className="text-right">Count</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Object.entries(databaseCounts).map(([name, { count, error }]) => {
+                        // Format collection name for display
+                        const displayName = name
+                          .replace(/([A-Z])/g, ' $1')
+                          .replace(/^./, str => str.toUpperCase())
+                          .trim();
+                        
+                        const isCritical = ['users', 'appState'].includes(name);
+                        
+                        return (
+                          <TableRow key={name}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <DatabaseIcon className="h-4 w-4 text-muted-foreground" />
+                                {displayName}
+                                {isCritical && (
+                                  <Badge variant="secondary" className="text-xs">Critical</Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {error ? (
+                                <span className="text-destructive text-sm">{error}</span>
+                              ) : (
+                                <span className="font-semibold">{count.toLocaleString()}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {!isCritical && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setCollectionToDelete(name);
+                                    setDeleteCollectionDialogOpen(true);
+                                  }}
+                                  className="text-destructive hover:text-destructive"
+                                  title={`Delete all ${displayName}`}
+                                >
+                                  <TrashIcon className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <DatabaseIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No database information available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="requests" className="space-y-4">
           <Card className="rounded-xl">
             <CardHeader>
@@ -2295,6 +2467,42 @@ export default function AdminPage() {
                 {isResponding ? "Processing..." : "Approve"}
               </AlertDialogAction>
             </div>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Collection Dialog */}
+      <AlertDialog open={deleteCollectionDialogOpen} onOpenChange={(open) => {
+        if (!open && !isDeletingCollection) {
+          setDeleteCollectionDialogOpen(false);
+          setCollectionToDelete(null);
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Collection Data</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you absolutely sure you want to delete all data from "{collectionToDelete ? collectionToDelete.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim() : ''}"?
+              <br /><br />
+              This action cannot be undone. This will permanently delete all {collectionToDelete && databaseCounts[collectionToDelete] ? databaseCounts[collectionToDelete].count.toLocaleString() : 0} records from this collection.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setCollectionToDelete(null);
+              }} 
+              disabled={isDeletingCollection}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCollection}
+              disabled={isDeletingCollection}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingCollection ? "Deleting..." : "Delete All"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

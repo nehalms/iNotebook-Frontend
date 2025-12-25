@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface LiveUser {
   id: string;
+  deviceId: string;
   name: string;
   ip: string;
 }
@@ -99,6 +100,7 @@ export function LiveUsers() {
                 <TableRow>
                   <TableHead>User ID</TableHead>
                   <TableHead>User Name</TableHead>
+                  <TableHead>Device ID</TableHead>
                   <TableHead>IP Address</TableHead>
                 </TableRow>
               </TableHeader>
@@ -107,6 +109,7 @@ export function LiveUsers() {
                   <TableRow key={user.id || index}>
                     <TableCell className="font-mono text-sm">{user.id}</TableCell>
                     <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="font-mono text-sm text-muted-foreground">{user.deviceId || '-'}</TableCell>
                     <TableCell className="font-mono text-sm text-muted-foreground">{user.ip}</TableCell>
                   </TableRow>
                 ))}

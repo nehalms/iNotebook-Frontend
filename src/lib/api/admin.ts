@@ -571,3 +571,74 @@ export const getMyRequests = async (): Promise<{ success: boolean; requests?: Pe
   }
 };
 
+// Database Management Types and Functions
+export interface CollectionCount {
+  count: number;
+  error: string | null;
+}
+
+export interface DatabaseCounts {
+  [collectionName: string]: CollectionCount;
+}
+
+export interface GetDatabaseCountsResponse {
+  success: boolean;
+  counts?: DatabaseCounts;
+  error?: string;
+}
+
+export interface DeleteCollectionResponse {
+  success: boolean;
+  message?: string;
+  deletedCount?: number;
+  error?: string;
+}
+
+// Get counts for all collections
+export const getDatabaseCounts = async (): Promise<GetDatabaseCountsResponse> => {
+  try {
+    const response = await fetch(getApiUrl('database/counts'), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to fetch database counts");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error fetching database counts:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to fetch database counts" };
+  }
+};
+
+// Delete all data from a collection
+export const deleteCollection = async (collectionName: string): Promise<DeleteCollectionResponse> => {
+  try {
+    const response = await fetch(getApiUrl(`database/${collectionName}`), {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to delete collection");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error deleting collection:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to delete collection" };
+  }
+};
+

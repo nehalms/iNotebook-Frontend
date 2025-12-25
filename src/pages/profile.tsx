@@ -46,6 +46,16 @@ const permissionsArray = {
   Calendar: "calendar",
 };
 
+const permissionRoutes: { [key: string]: string } = {
+  Notes: "/notes",
+  Tasks: "/tasks",
+  Images: "/images",
+  Games: "/games",
+  Messages: "/messages",
+  News: "/news",
+  Calendar: "/calendar",
+};
+
 export default function ProfilePage() {
   const [location, setLocation] = useLocation();
   const { isLoggedIn, isPinSet, email, setPinSet, setPinVerified } = useSessionStore();
@@ -460,7 +470,7 @@ export default function ProfilePage() {
             variant="destructive"
             onClick={() => setShowDeleteDialog(true)}
             disabled={loading || isDeleting}
-            className="flex items-center gap-2"
+            className="hidden lg:flex items-center gap-2"
           >
             <Trash2 className="h-4 w-4" />
             Delete Account
@@ -754,10 +764,20 @@ export default function ProfilePage() {
                     const isEnabled = permissions.includes(
                       permissionsArray[key as keyof typeof permissionsArray]
                     );
+                    const route = permissionRoutes[key];
                     return (
                       <div
                         key={key}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                        onClick={() => {
+                          if (isEnabled && route) {
+                            setLocation(route);
+                          }
+                        }}
+                        className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                          isEnabled && route
+                            ? "hover:bg-muted/50 cursor-pointer hover:border-primary/50"
+                            : "cursor-not-allowed opacity-60"
+                        }`}
                       >
                         <span className="font-medium">{key}</span>
                         <div className="flex items-center gap-2">
@@ -779,6 +799,23 @@ export default function ProfilePage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Delete Account Button - Mobile Only */}
+            <div className="lg:hidden mt-5">
+              <Card className="rounded-xl border-destructive/50">
+                <CardContent className="p-0">
+                  <Button
+                    variant="destructive"
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={loading || isDeleting}
+                    className="w-full flex items-center justify-center gap-2 p-3"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete Account
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
@@ -814,7 +851,6 @@ export default function ProfilePage() {
             <Button onClick={handleEnablePinConfirm} disabled={isSendingOtp}>
               {isSendingOtp ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Sending...
                 </>
               ) : (
@@ -858,7 +894,6 @@ export default function ProfilePage() {
             >
               {isSendingOtp ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Sending...
                 </>
               ) : (
