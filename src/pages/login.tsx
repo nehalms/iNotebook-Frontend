@@ -25,8 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { OtpVerification } from "@/components/otp-verification";
-import { login, sendAdminOtp } from "@/lib/api/auth";
-import { verifyOtp } from "@/lib/api/email";
+import { login, sendOtp, verifyOtp } from "@/lib/api/auth";
 import { encryptMessage } from "@/lib/utils/encryption";
 import { useSessionStore } from "@/store/sessionStore";
 import { queryClient } from "@/lib/queryClient";
@@ -96,7 +95,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     try {
       // Encrypt email before sending
       const encryptedEmail = await encryptMessage(email);
-      await sendAdminOtp(encryptedEmail);
+      await sendOtp(encryptedEmail, 'login');
       setShowAdminOtp(true);
       setIsAdminVerified(false);
       toast({
@@ -121,10 +120,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
     setIsVerifyingOtp(true);
     try {
-      const response = await verifyOtp({
-        email: email,
-        code: code.toString(),
-      });
+      // Encrypt email and code before sending
+      const encryptedEmail = await encryptMessage(email);
+      const encryptedCode = await encryptMessage(code.toString());
+      
+      const response = await verifyOtp(encryptedEmail, encryptedCode);
 
       if (response.success && response.verified) {
         // Use flushSync to ensure state update is synchronous before clicking button
@@ -143,7 +143,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       } else {
         toast({
           title: "Verification Failed",
-          description: response.msg || "Invalid verification code",
+          description: response.message || response.error || "Invalid verification code",
           variant: "destructive",
         });
       }
@@ -181,17 +181,26 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       const response = await login({
         email: encryptedEmail,
         password: encryptedPassword,
-      }, isAdminVerified);
+      });
 
-      if (response.success) {
-        if (response.isAdminUser && !isAdminUser) {
+      // Check if OTP is required (even if success is false)
+      if (response.isAdminUser && response.requiresOTP) {
+        // Admin user - OTP required (backend automatically sent it)
+        if (!isAdminUser) {
           // First time detecting admin user
           setIsAdminUser(true);
-          setIsLoading(false);
-          handleSendAdminOtp();
-          return;
         }
+        setShowAdminOtp(true);
+        setIsAdminVerified(false);
+        setIsLoading(false);
+        toast({
+          title: "OTP Sent",
+          description: response.message || "Admin passkey has been sent to your email",
+        });
+        return;
+      }
 
+      if (response.success) {
         // Clear React Query cache to ensure fresh data for the new user
         queryClient.clear();
         

@@ -23,8 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { OtpVerification } from "@/components/otp-verification";
-import { checkUserAndSendOtp, updatePassword } from "@/lib/api/auth";
-import { verifyOtp } from "@/lib/api/email";
+import { getPassword, updatePassword, sendOtp, verifyOtp } from "@/lib/api/auth";
 import { encryptMessage } from "@/lib/utils/encryption";
 
 const forgotPasswordSchema = z.object({
@@ -75,34 +74,78 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
-      // Encrypt email before checking
+      // First, get user info to get the user ID
       const encryptedEmail = await encryptMessage(data.email);
+      const userResponse = await getPassword(encryptedEmail);
       
-      // Check if user exists and send OTP
-      const response = await checkUserAndSendOtp(encryptedEmail, 'forgot-password');
+      if (!userResponse.found || !userResponse.user) {
+        toast({
+          title: "Error",
+          description: "No user found with this email",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Store user data
+      setUserData({ _id: userResponse.user._id, email: data.email });
       
-      if (response.success && response.user) {
-        setUserData({ _id: response.user._id, email: data.email });
+      // Try to update password with empty password - backend will auto-send OTP if no sessionId
+      const encryptedId = await encryptMessage(userResponse.user._id);
+      const encryptedPassword = await encryptMessage(""); // Empty password, won't be used without OTP verification
+      
+      const response = await updatePassword(encryptedId, encryptedEmail, encryptedPassword);
+      
+      // Check if OTP is required (even if success is false)
+      if (response.requiresOTP) {
         setEmailSent(true);
         setShowOtp(true);
         toast({
           title: "OTP Sent",
-          description: response.message || "Verification code has been sent to your email",
+          description: response.message || "Verification code has been sent to your email. Please verify to reset password.",
         });
+        return;
+      }
+
+      if (response.success) {
+        // Shouldn't happen, but handle it
+        toast({
+          title: "Success",
+          description: "Password updated successfully",
+        });
+        setLocation("/login");
       } else {
         toast({
           title: "Error",
-          description: response.error || "Failed to send OTP",
+          description: response.error || "Failed to process request",
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error("Reset email error:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send reset email",
-        variant: "destructive",
-      });
+      const errorMessage = error instanceof Error ? error.message : "Failed to process request";
+      
+      // Check if error indicates OTP was sent
+      if (errorMessage.includes("OTP") || errorMessage.includes("verify OTP") || errorMessage.includes("session")) {
+        setEmailSent(true);
+        setShowOtp(true);
+        toast({
+          title: "OTP Sent",
+          description: "Verification code has been sent to your email. Please verify to reset password.",
+        });
+      } else if (errorMessage.includes("No user found")) {
+        toast({
+          title: "Error",
+          description: "No user found with this email",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -113,10 +156,11 @@ export default function ForgotPasswordPage() {
 
     setIsVerifyingOtp(true);
     try {
-      const response = await verifyOtp({
-        email: userData.email,
-        code: code.toString(),
-      });
+      // Encrypt email and code before sending
+      const encryptedEmail = await encryptMessage(userData.email);
+      const encryptedCode = await encryptMessage(code.toString());
+      
+      const response = await verifyOtp(encryptedEmail, encryptedCode);
 
       if (response.success && response.verified) {
         setOtpVerified(true);
@@ -128,7 +172,7 @@ export default function ForgotPasswordPage() {
       } else {
         toast({
           title: "Verification Failed",
-          description: response.msg || "Invalid verification code",
+          description: response.message || response.error || "Invalid verification code",
           variant: "destructive",
         });
       }
@@ -146,8 +190,9 @@ export default function ForgotPasswordPage() {
   const handleResendOtp = async () => {
     if (!userData) return;
     try {
+      // Use sendOtp for resend functionality
       const encryptedEmail = await encryptMessage(userData.email);
-      await checkUserAndSendOtp(encryptedEmail, 'forgot-password');
+      await sendOtp(encryptedEmail, 'forgot-password');
       toast({
         title: "OTP Sent",
         description: "A new verification code has been sent to your email",

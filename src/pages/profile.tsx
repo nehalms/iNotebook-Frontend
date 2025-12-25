@@ -199,7 +199,7 @@ export default function ProfilePage() {
 
     setLoading(true);
     try {
-      const response = await updateUserPassword(profile.id, profile.email, pass.password);
+      const response = await updateUserPassword(pass.password);
       if (response.success) {
         toast({
           title: "Success",

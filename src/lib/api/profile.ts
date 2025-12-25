@@ -91,24 +91,18 @@ export const updateUserName = async (name: string): Promise<UpdateNameResponse> 
 };
 
 export const updateUserPassword = async (
-  id: string,
-  email: string,
   password: string
 ): Promise<UpdatePasswordResponse> => {
   try {
-    const encryptedId = await encryptMessage(id);
-    const encryptedEmail = await encryptMessage(email);
     const encryptedPassword = await encryptMessage(password);
 
-    const response = await fetch(getApiUrl("auth/updatePassword"), {
+    const response = await fetch(getApiUrl("auth/changePassword"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       credentials: "include",
       body: JSON.stringify({
-        id: encryptedId,
-        email: encryptedEmail,
         password: encryptedPassword,
       }),
     });

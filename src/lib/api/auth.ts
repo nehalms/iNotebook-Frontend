@@ -10,6 +10,8 @@ export interface LoginResponse {
   isAdminUser?: boolean;
   permissions?: string[];
   isPinSet?: boolean;
+  requiresOTP?: boolean;
+  message?: string;
   error?: string;
 }
 
@@ -23,6 +25,8 @@ export interface SignupResponse {
   success: boolean;
   permissions?: string[];
   isPinSet?: boolean;
+  requiresOTP?: boolean;
+  message?: string;
   error?: string;
 }
 
@@ -51,8 +55,8 @@ export interface GetStateResponse {
 }
 
 // Login user
-export async function login(data: LoginRequest, verified: boolean = false): Promise<LoginResponse> {
-  const response = await fetch(getApiUrl(`auth/login${verified ? '?verified=true' : ''}`), {
+export async function login(data: LoginRequest): Promise<LoginResponse> {
+  const response = await fetch(getApiUrl('auth/login'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -61,12 +65,18 @@ export async function login(data: LoginRequest, verified: boolean = false): Prom
     body: JSON.stringify(data),
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Login failed');
+  const data_response = await response.json();
+
+  // If response has requiresOTP, return it even if status is 400
+  if (data_response.requiresOTP) {
+    return data_response;
   }
 
-  return await response.json();
+  if (!response.ok) {
+    throw new Error(data_response.error || 'Login failed');
+  }
+
+  return data_response;
 }
 
 // Create new user
@@ -81,12 +91,18 @@ export async function signup(data: SignupRequest): Promise<SignupResponse> {
     body: JSON.stringify(data),
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Signup failed');
+  const data_response = await response.json();
+
+  // If response has requiresOTP, return it even if status is 400
+  if (data_response.requiresOTP) {
+    return data_response;
   }
 
-  return await response.json();
+  if (!response.ok) {
+    throw new Error(data_response.error || 'Signup failed');
+  }
+
+  return data_response;
 }
 
 // Get logged in user details
@@ -156,7 +172,7 @@ export async function getPassword(email: string): Promise<{ found: boolean; user
 }
 
 // Update password
-export async function updatePassword(id: string, email: string, password: string): Promise<{ success: boolean; user: User }> {
+export async function updatePassword(id: string, email: string, password: string): Promise<{ success: boolean; user?: User; requiresOTP?: boolean; message?: string; error?: string }> {
   const response = await fetch(getApiUrl('auth/updatePassword'), {
     method: 'POST',
     headers: {
@@ -166,20 +182,28 @@ export async function updatePassword(id: string, email: string, password: string
     body: JSON.stringify({ id, email, password }),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to update password');
+  const data_response = await response.json();
+
+  // If response has requiresOTP, return it even if status is 400
+  if (data_response.requiresOTP) {
+    return data_response;
   }
 
-  return await response.json();
+  if (!response.ok) {
+    throw new Error(data_response.error || 'Failed to update password');
+  }
+
+  return data_response;
 }
 
-// Check if user exists and send OTP for signup or forgot password
-export async function checkUserAndSendOtp(
+// Unified OTP send function for login, signup, and forgot-password
+export async function sendOtp(
   email: string, 
-  type: 'signup' | 'forgot-password' = 'signup'
-): Promise<{ success: boolean; message?: string; error?: string; user?: { _id: string } }> {
+  type: 'login' | 'signup' | 'forgot-password'
+): Promise<{ success: boolean; message?: string; error?: string }> {
   // Note: Email should be encrypted before calling this function
-  const response = await fetch(getApiUrl(`auth/checkuserandsendotp?type=${type}`), {
+  // Type is passed as path parameter since body is encrypted
+  const response = await fetch(getApiUrl(`auth/sendotp/${type}`), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -191,30 +215,32 @@ export async function checkUserAndSendOtp(
   const data = await response.json();
   
   if (!response.ok) {
-    throw new Error(data.error || 'Failed to check user and send OTP');
+    throw new Error(data.error || 'Failed to send OTP');
   }
 
   return data;
 }
 
-// Send admin OTP for login
-export async function sendAdminOtp(email: string): Promise<{ success: boolean; message?: string; error?: string }> {
-  // Note: Email should be encrypted before calling this function
-  const response = await fetch(getApiUrl('auth/sendadminotp'), {
+// Unified OTP verify function
+export async function verifyOtp(
+  email: string,
+  code: string
+): Promise<{ success: boolean; verified: boolean; message?: string; type?: string; error?: string }> {
+  // Note: Email and code should be encrypted before calling this function
+  const response = await fetch(getApiUrl('auth/verifyotp'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     credentials: 'include',
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, code }),
   });
 
   const data = await response.json();
   
   if (!response.ok) {
-    throw new Error(data.error || 'Failed to send admin OTP');
+    throw new Error(data.error || 'Failed to verify OTP');
   }
 
   return data;
 }
-

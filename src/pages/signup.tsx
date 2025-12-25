@@ -24,8 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { OtpVerification } from "@/components/otp-verification";
-import { signup, checkUserAndSendOtp } from "@/lib/api/auth";
-import { verifyOtp } from "@/lib/api/email";
+import { signup, sendOtp, verifyOtp } from "@/lib/api/auth";
 import { encryptMessage } from "@/lib/utils/encryption";
 import { useSessionStore } from "@/store/sessionStore";
 
@@ -81,10 +80,11 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
 
     setIsVerifyingOtp(true);
     try {
-      const response = await verifyOtp({
-        email: formData.email,
-        code: code.toString(),
-      });
+      // Encrypt email and code before sending
+      const encryptedEmail = await encryptMessage(formData.email);
+      const encryptedCode = await encryptMessage(code.toString());
+      
+      const response = await verifyOtp(encryptedEmail, encryptedCode);
 
       if (response.success && response.verified) {
         setIsEmailVerified(true);
@@ -93,7 +93,7 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
       } else {
         toast({
           title: "Verification Failed",
-          description: response.msg || "Invalid verification code",
+          description: response.message || response.error || "Invalid verification code",
           variant: "destructive",
         });
       }
@@ -113,7 +113,7 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
     setIsLoading(true);
     try {
       const encryptedEmail = await encryptMessage(formData.email);
-      await checkUserAndSendOtp(encryptedEmail, 'signup');
+      await sendOtp(encryptedEmail, 'signup');
       toast({
         title: "OTP Sent",
         description: "A new verification code has been sent to your email",
@@ -186,23 +186,50 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
     setFormData(data);
     setIsVerifyingUser(true);
     try {
-      // Encrypt email before sending
+      // Encrypt data before sending
+      const encryptedName = await encryptMessage(data.name);
       const encryptedEmail = await encryptMessage(data.email);
-      
-      // Check if user exists and send OTP
-      const response = await checkUserAndSendOtp(encryptedEmail, 'signup');
-      
-      if (response.success) {
+      const encryptedPassword = await encryptMessage(data.password);
+
+      // Directly call signup - backend will auto-send OTP if needed
+      const response = await signup({
+        name: encryptedName,
+        email: encryptedEmail,
+        password: encryptedPassword,
+      });
+
+      // Check if OTP is required (even if success is false)
+      if (response.requiresOTP) {
         setShowOtp(true);
         setIsEmailVerified(false);
         toast({
           title: "OTP Sent",
           description: response.message || "Verification code has been sent to your email",
         });
+        return;
+      }
+
+      if (response.success) {
+        // Signup successful
+        useSessionStore.getState().login({
+          email: data.email,
+          isAdmin: false,
+          permissions: response.permissions || [],
+          isPinSet: response.isPinSet || false,
+          isPinVerified: false,
+        });
+
+        await useSessionStore.getState().fetchAndSetSecretKey();
+
+        toast({
+          title: "Success",
+          description: "Account created successfully",
+        });
+        await onSignup?.(data.name, data.email, data.password);
+        setLocation("/");
       } else {
-        // Check if error is about user already existing
-        const errorMsg = response.error || "Failed to send OTP";
-        if (errorMsg.includes("already exists") || errorMsg.includes("user with this email")) {
+        // Handle other errors
+        if (response.error?.includes("already exists") || response.error?.includes("user with this email")) {
           // Redirect to login with email pre-populated
           const encodedEmail = encodeURIComponent(data.email);
           setLocation(`/login?email=${encodedEmail}`);
@@ -214,15 +241,23 @@ export default function SignupPage({ onSignup }: SignupPageProps) {
         } else {
           toast({
             title: "Error",
-            description: errorMsg,
+            description: response.error || "Signup failed",
             variant: "destructive",
           });
         }
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to check user and send OTP";
+      const errorMessage = error instanceof Error ? error.message : "Signup failed";
       
-      if (errorMessage.includes("already exists") || errorMessage.includes("user with this email")) {
+      // Check if error indicates OTP was sent
+      if (errorMessage.includes("OTP") || errorMessage.includes("verify OTP")) {
+        setShowOtp(true);
+        setIsEmailVerified(false);
+        toast({
+          title: "OTP Required",
+          description: "Please verify OTP to complete signup",
+        });
+      } else if (errorMessage.includes("already exists") || errorMessage.includes("user with this email")) {
         const encodedEmail = encodeURIComponent(data.email);
         setLocation(`/login?email=${encodedEmail}`);
         toast({
