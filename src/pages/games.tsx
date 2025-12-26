@@ -231,7 +231,7 @@ export default function GamesPage() {
               </div>
               <div className="text-center p-6 rounded-lg bg-muted/50">
                 <p className="text-3xl font-bold mb-1">
-                  {gameStats.length > 0
+                  {gameStats.length > 0 && gameStats.reduce((sum, s) => sum + s.totalPlayed, 0) > 0 && gameStats.reduce((sum, s) => sum + s.wins, 0) > 0
                     ? Math.round(
                         (gameStats.reduce((sum, s) => sum + s.wins, 0) /
                           gameStats.reduce((sum, s) => sum + s.totalPlayed, 0)) *

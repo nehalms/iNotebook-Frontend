@@ -81,7 +81,7 @@ export default function ForgotPasswordPage() {
       if (!userResponse.found || !userResponse.user) {
         toast({
           title: "Error",
-          description: "No user found with this email",
+          description: userResponse.error || "No user found with this email",
           variant: "destructive",
         });
         return;
