@@ -31,6 +31,7 @@ import CalendarPage from "@/pages/calendar";
 import NewsPage from "@/pages/news";
 import { useSessionStore } from "@/store/sessionStore";
 import { getApiUrl } from "@/lib/api/config";
+import { getPublicKey } from "./lib/utils/encryption";
 
 function AuthenticatedApp() {
   const [location, setLocation] = useLocation();
@@ -320,6 +321,13 @@ function Router() {
 }
 
 function App() {
+
+  useEffect(() => {
+    getPublicKey().catch((error) => {
+      console.error("Error fetching public key on app load:", error);
+    });
+  }, []);
+  
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
