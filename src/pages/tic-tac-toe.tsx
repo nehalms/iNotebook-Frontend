@@ -11,6 +11,7 @@ import { SOCKET_URL, BOOTSTRAP_URL, getApiUrl } from "@/lib/api/config";
 import SockJS from "sockjs-client";
 import { over } from "stompjs";
 import { ApiErrorResponse, handleApiError } from "@/lib/utils/api-error-handler";
+import Countdown from "@/components/count-down";
 
 type Player = "X" | "O" | "";
 type Board = (Player | null)[];
@@ -68,7 +69,8 @@ export default function TicTacToePage() {
     played: 0,
   });
   const stompClientRef = useRef<any>(null);
-
+  const [gameStatus, setGameStatus] = useState<"FINISHED" | "">("");
+  
   useEffect(() => {
     if (!isLoggedIn) {
       setLocation("/login");
@@ -79,7 +81,6 @@ export default function TicTacToePage() {
     const stompClient = over(socket);
 
     stompClient.connect({}, (frame: any) => {
-      console.log("Connected: " + frame);
       stompClient.subscribe(`/topic/oppPlayerDetails/${roomDetails.id}`, (message: any) => {
         if (message.body) {
           const data = JSON.parse(message.body);
@@ -103,6 +104,7 @@ export default function TicTacToePage() {
           setBoardFunc(data.board);
           setTurn(data.turn as Player);
           if (data.status === "FINISHED") {
+            setGameStatus("FINISHED");
             saveGameData(data);
             getPlayerData();
           }
@@ -508,6 +510,7 @@ export default function TicTacToePage() {
 
   const handleReset = async () => {
     try {
+      setGameStatus("");
       // Reset all cell backgrounds to white
       for (let i = 1; i <= 9; i++) {
         const cell = document.getElementById(String(i));
@@ -672,7 +675,9 @@ export default function TicTacToePage() {
                   <div className="space-y-4">
                     <div className="text-center">
                       <Badge variant="secondary" className="text-base px-4 py-1">
-                        You are player {player} | Current Turn: {currTurn}
+                        { gameStatus === 'FINISHED' ? (<Countdown startSeconds={5} message="New game starting in" onFinish={handleReset} />) :  
+                          (`You are player ${player} | Current Turn: ${currTurn}`)
+                        }
                       </Badge>
                     </div>
                     <div className="grid grid-cols-3 gap-3 max-w-md mx-auto w-full">

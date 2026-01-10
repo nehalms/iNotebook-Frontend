@@ -11,6 +11,7 @@ import { C4_SOCKET_URL, C4_BOOTSTRAP_URL, getApiUrl } from "@/lib/api/config";
 import { handleApiError, type ApiErrorResponse } from "@/lib/utils/api-error-handler";
 import SockJS from "sockjs-client";
 import { over, Client } from "stompjs";
+import Countdown from "@/components/count-down";
 
 const ROWS = 7;
 const COLS = 7;
@@ -75,6 +76,7 @@ export default function FourInRowPage() {
     played: 0,
   });
   const stompClientRef = useRef<any>(null);
+  const [gameStatus, setGameStatus] = useState<"FINISHED" | "">("");
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -86,7 +88,6 @@ export default function FourInRowPage() {
     const stompClient = over(socket);
 
     stompClient.connect({}, (frame) => {
-      console.log("Connected: " + frame);
       // Don't set connected here - only set when room is created/joined
 
       stompClient.subscribe(`/topic/oppPlayerDetails/${roomDetails.id}`, (message: any) => {
@@ -112,6 +113,7 @@ export default function FourInRowPage() {
           setBoard(data.board);
           setTurn(data.turn as Player);
           if (data.status === "FINISHED") {
+            setGameStatus("FINISHED");
             saveGameData(data);
             getPlayerData();
           }
@@ -545,6 +547,7 @@ export default function FourInRowPage() {
   };
 
   const handleReset = async () => {
+    setGameStatus("");
     try {
       let response = await fetch(`${C4_BOOTSTRAP_URL}/game/reset?gameId=${roomDetails.id}`, {
         method: "POST",
@@ -676,7 +679,9 @@ export default function FourInRowPage() {
                   <div className="space-y-4">
                     <div className="text-center">
                       <Badge variant="secondary" className="text-base px-4 py-1">
-                        You are player {player} | Current Turn: {currTurn}
+                        { gameStatus === 'FINISHED' ? (<Countdown startSeconds={5} message="New game starting in" onFinish={handleReset} />) :  
+                          (`You are player ${player} | Current Turn: ${currTurn}`)
+                        }
                       </Badge>
                     </div>
                     <div className="flex justify-center p-2 sm:p-3 md:p-4 lg:p-6 rounded-xl bg-primary/5 w-full overflow-x-auto max-w-full">
