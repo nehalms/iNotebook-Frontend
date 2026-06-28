@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useSessionStore } from "@/store/sessionStore";
 import { getUserProfile, updateUserName, updateUserPassword, deleteAccount } from "@/lib/api/profile";
+import { getApiUrl } from "@/lib/api/config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,13 +96,44 @@ export default function ProfilePage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Game stats
+  const [gameStats, setGameStats] = useState({
+    tttPlayed: 0, tttWon: 0, tttLost: 0,
+    c4Played: 0, c4Won: 0, c4Lost: 0,
+    loaded: false,
+  });
+
   useEffect(() => {
     if (!isLoggedIn) {
       setLocation("/login");
       return;
     }
     fetchUserProfile();
+    fetchGameStats();
   }, [isLoggedIn, setLocation]);
+
+  const fetchGameStats = async () => {
+    try {
+      const response = await fetch(getApiUrl("game/getStats"), {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = await response.json();
+      if (json.stats) {
+        setGameStats({
+          tttPlayed: json.stats.tttStats?.played || 0,
+          tttWon: json.stats.tttStats?.won || 0,
+          tttLost: json.stats.tttStats?.lost || 0,
+          c4Played: json.stats.frnRowStats?.played || 0,
+          c4Won: json.stats.frnRowStats?.won || 0,
+          c4Lost: json.stats.frnRowStats?.lost || 0,
+          loaded: true,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching game stats:", error);
+    }
+  };
 
   const fetchUserProfile = async () => {
     setLoading(true);
@@ -752,8 +784,8 @@ export default function ProfilePage() {
             </Card>
           </div>
 
-          {/* Permissions Sidebar */}
-          <div className="lg:col-span-1">
+          {/* Permissions & Game Stats Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
             <Card className="rounded-xl">
               <CardHeader>
                 <CardTitle className="text-xl">Permissions</CardTitle>
@@ -799,6 +831,102 @@ export default function ProfilePage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Game Stats Card */}
+            {gameStats.loaded && (
+              <Card className="rounded-xl">
+                <CardHeader>
+                  <CardTitle className="text-xl">Game Stats</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  {/* Tic-Tac-Toe */}
+                  <div>
+                    <p className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Tic-Tac-Toe</p>
+                    <div className="grid grid-cols-4 gap-1 text-center mb-3">
+                      {[
+                        { label: "Played", value: gameStats.tttPlayed, cls: "text-foreground" },
+                        { label: "Won", value: gameStats.tttWon, cls: "text-green-600 dark:text-green-400" },
+                        { label: "Lost", value: gameStats.tttLost, cls: "text-red-500" },
+                        { label: "Draw", value: Math.max(0, gameStats.tttPlayed - gameStats.tttWon - gameStats.tttLost), cls: "text-muted-foreground" },
+                      ].map(({ label, value, cls }) => (
+                        <div key={label} className="p-1.5 bg-muted/50 rounded-lg">
+                          <p className={`text-lg font-bold ${cls}`}>{value}</p>
+                          <p className="text-[10px] text-muted-foreground">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {gameStats.tttPlayed > 0 ? (
+                      <div className="space-y-2">
+                        {[
+                          { label: "Win", value: gameStats.tttWon, color: "bg-green-500" },
+                          { label: "Loss", value: gameStats.tttLost, color: "bg-red-500" },
+                          { label: "Draw", value: Math.max(0, gameStats.tttPlayed - gameStats.tttWon - gameStats.tttLost), color: "bg-slate-400 dark:bg-slate-500" },
+                        ].map(({ label, value, color }) => {
+                          const pct = Math.round((value / gameStats.tttPlayed) * 100);
+                          return (
+                            <div key={label}>
+                              <div className="flex justify-between text-xs text-muted-foreground mb-0.5">
+                                <span>{label}</span>
+                                <span>{pct}%</span>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className={`h-full ${color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground text-center">No games yet</p>
+                    )}
+                  </div>
+
+                  <div className="border-t" />
+
+                  {/* Connect Four */}
+                  <div>
+                    <p className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Connect Four</p>
+                    <div className="grid grid-cols-4 gap-1 text-center mb-3">
+                      {[
+                        { label: "Played", value: gameStats.c4Played, cls: "text-foreground" },
+                        { label: "Won", value: gameStats.c4Won, cls: "text-green-600 dark:text-green-400" },
+                        { label: "Lost", value: gameStats.c4Lost, cls: "text-red-500" },
+                        { label: "Draw", value: Math.max(0, gameStats.c4Played - gameStats.c4Won - gameStats.c4Lost), cls: "text-muted-foreground" },
+                      ].map(({ label, value, cls }) => (
+                        <div key={label} className="p-1.5 bg-muted/50 rounded-lg">
+                          <p className={`text-lg font-bold ${cls}`}>{value}</p>
+                          <p className="text-[10px] text-muted-foreground">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {gameStats.c4Played > 0 ? (
+                      <div className="space-y-2">
+                        {[
+                          { label: "Win", value: gameStats.c4Won, color: "bg-green-500" },
+                          { label: "Loss", value: gameStats.c4Lost, color: "bg-red-500" },
+                          { label: "Draw", value: Math.max(0, gameStats.c4Played - gameStats.c4Won - gameStats.c4Lost), color: "bg-slate-400 dark:bg-slate-500" },
+                        ].map(({ label, value, color }) => {
+                          const pct = Math.round((value / gameStats.c4Played) * 100);
+                          return (
+                            <div key={label}>
+                              <div className="flex justify-between text-xs text-muted-foreground mb-0.5">
+                                <span>{label}</span>
+                                <span>{pct}%</span>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className={`h-full ${color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground text-center">No games yet</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Delete Account Button - Mobile Only */}
             <div className="lg:hidden mt-5">

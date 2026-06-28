@@ -25,6 +25,11 @@ import {
   Loader,
   Database as DatabaseIcon,
   Trash2 as TrashIcon,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Trophy,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -203,6 +208,16 @@ export default function AdminPage() {
   const [loginAnalyticsLoading, setLoginAnalyticsLoading] = useState(false);
   const [onlineAnalyticsLoading, setOnlineAnalyticsLoading] = useState(false);
 
+  // Pagination state
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersPageSize, setUsersPageSize] = useState(10);
+  const [gamesPage, setGamesPage] = useState(1);
+  const [gamesPageSize, setGamesPageSize] = useState(10);
+  const [permsPage, setPermsPage] = useState(1);
+  const [permsPageSize, setPermsPageSize] = useState(10);
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [requestsPageSize, setRequestsPageSize] = useState(10);
+
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) {
       setLocation("/");
@@ -346,6 +361,7 @@ export default function AdminPage() {
     });
 
     setFilteredRequests(result);
+    setRequestsPage(1);
   }, [permissionRequests, requestSearchQuery, requestSortField, requestSortDirection]);
   
   // Fetch requests when status filter changes
@@ -410,6 +426,7 @@ export default function AdminPage() {
     });
 
     setFilteredPermissionUsers(result);
+    setPermsPage(1);
   }, [permissionUsers, permissionSearchQuery, permissionSortField, permissionSortDirection]);
   
   const handlePermissionSort = (field: keyof PermissionUser) => {
@@ -942,6 +959,7 @@ export default function AdminPage() {
     });
 
     setFilteredUsers(result);
+    setUsersPage(1);
   }, [users, sortField, sortDirection, searchQuery]);
 
   const handleSort = (field: keyof AdminUser) => {
@@ -1004,6 +1022,91 @@ export default function AdminPage() {
       bgColor: "bg-chart-4/10",
     },
   ];
+
+  // ─── Inline helper components ─────────────────────────────────────────────
+
+  // SVG half-circle speedometer gauge
+  const GaugeCard = ({ title, value, total, color, bgClass }: {
+    title: string; value: number; total: number; color: string; bgClass: string;
+  }) => {
+    const pct = total > 0 ? Math.min(100, (value / total) * 100) : 0;
+    const arcLen = Math.PI * 45; // r=45 semicircle
+    const dash = (pct / 100) * arcLen;
+    return (
+      <div className={`flex flex-col items-center p-3 rounded-xl border ${bgClass}`}>
+        <svg width="110" height="68" viewBox="0 0 110 68">
+          {/* bg arc: center (55,60), r=45, from (10,60) to (100,60) */}
+          <path d="M 10 60 A 45 45 0 0 1 100 60" fill="none" stroke="hsl(var(--muted))" strokeWidth="9" strokeLinecap="round" />
+          {/* value arc */}
+          <path
+            d="M 10 60 A 45 45 0 0 1 100 60"
+            fill="none"
+            stroke={color}
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeDasharray={`${dash} ${arcLen}`}
+          />
+          <text x="55" y="57" textAnchor="middle" fontSize="17" fontWeight="bold" fill="hsl(var(--foreground))">{value}</text>
+        </svg>
+        <span className="text-xs font-medium text-muted-foreground text-center leading-tight">{title}</span>
+        <span className="text-xs text-muted-foreground mt-0.5">{Math.round(pct)}% of users</span>
+      </div>
+    );
+  };
+
+  // Mini stat bar for game stats rows
+  const StatMiniBar = ({ label, value, total, color }: { label: string; value: number; total: number; color: string }) => {
+    const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] font-semibold w-4 shrink-0" style={{ color }}>{label}</span>
+        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: color }} />
+        </div>
+        <span className="text-[10px] text-muted-foreground w-14 text-right shrink-0">{value} ({pct}%)</span>
+      </div>
+    );
+  };
+
+  // Pagination controls row
+  const PaginationControls = ({
+    page, pageSize, total, onPageChange, onPageSizeChange,
+  }: { page: number; pageSize: number; total: number; onPageChange: (p: number) => void; onPageSizeChange: (s: number) => void }) => {
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const start = Math.min((page - 1) * pageSize + 1, total);
+    const end = Math.min(page * pageSize, total);
+    if (total === 0) return null;
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 mt-4 px-1 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <span>Rows:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => { onPageSizeChange(Number(e.target.value)); onPageChange(1); }}
+            className="border rounded px-1.5 py-0.5 text-sm bg-background cursor-pointer"
+          >
+            {[10, 25, 50].map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <span>Showing {start}–{end} of {total}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onPageChange(1)} disabled={page === 1}>
+            <ChevronsLeft className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onPageChange(page - 1)} disabled={page === 1}>
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <span className="px-2 text-sm">{page} / {totalPages}</span>
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onPageChange(totalPages)} disabled={page >= totalPages}>
+            <ChevronsRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -1111,6 +1214,7 @@ export default function AdminPage() {
                   ))}
                 </div>
               ) : filteredUsers.length > 0 ? (
+                <>
                 <div className="rounded-lg border overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1177,7 +1281,9 @@ export default function AdminPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredUsers.map((user) => (
+                      {filteredUsers
+                        .slice((usersPage - 1) * usersPageSize, usersPage * usersPageSize)
+                        .map((user) => (
                         <TableRow key={user.id}>
                           <TableCell>{user.id}</TableCell>
                           <TableCell className="font-medium">{user.name}</TableCell>
@@ -1317,6 +1423,14 @@ export default function AdminPage() {
                     </TableBody>
                   </Table>
                 </div>
+                <PaginationControls
+                  page={usersPage}
+                  pageSize={usersPageSize}
+                  total={filteredUsers.length}
+                  onPageChange={setUsersPage}
+                  onPageSizeChange={setUsersPageSize}
+                />
+                </>
               ) : searchQuery.trim() ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Users className="h-12 w-12 text-muted-foreground mb-4" />
@@ -1356,61 +1470,104 @@ export default function AdminPage() {
                   ))}
                     </div>
               ) : gameStats.length > 0 ? (
-                <div className="rounded-lg border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>SL.No</TableHead>
-                        <TableHead>User Name</TableHead>
-                        <TableHead colSpan={3} className="text-center bg-muted">
-                          Tic-Tac-Toe
-                        </TableHead>
-                        <TableHead colSpan={3} className="text-center bg-muted">
-                          Connect Four
-                        </TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                      <TableRow>
-                        <TableHead></TableHead>
-                        <TableHead></TableHead>
-                        <TableHead className="bg-muted/50">Played</TableHead>
-                        <TableHead className="bg-muted/50">Won</TableHead>
-                        <TableHead className="bg-muted/50">Lost</TableHead>
-                        <TableHead className="bg-muted/50">Played</TableHead>
-                        <TableHead className="bg-muted/50">Won</TableHead>
-                        <TableHead className="bg-muted/50">Lost</TableHead>
-                        <TableHead></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {gameStats.map((stat) => (
-                        <TableRow key={stat.id}>
-                          <TableCell>{stat.id}</TableCell>
-                          <TableCell className="font-medium">{stat.name}</TableCell>
-                          <TableCell>{stat.ttt_played}</TableCell>
-                          <TableCell>{stat.ttt_won}</TableCell>
-                          <TableCell>{stat.ttt_lost}</TableCell>
-                          <TableCell>{stat.con4_played}</TableCell>
-                          <TableCell>{stat.con4_won}</TableCell>
-                          <TableCell>{stat.con4_lost}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setStatsToDelete(stat.statsId);
-                                setDeleteDialogOpen(true);
-                              }}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
+                <>
+                  {/* Top-3 Leaderboard */}
+                  {(() => {
+                    const medals = ['🥇','🥈','🥉'];
+                    const top3 = [...gameStats]
+                      .map(s => ({ ...s, totalWins: s.ttt_won + s.con4_won }))
+                      .sort((a, b) => b.totalWins - a.totalWins)
+                      .slice(0, 3);
+                    return top3.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                        {top3.map((p, i) => (
+                          <div key={p.statsId} className="flex items-center gap-3 p-3 rounded-xl border bg-muted/30">
+                            <span className="text-2xl">{medals[i]}</span>
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate">{p.name}</p>
+                              <p className="text-xs text-muted-foreground">{p.totalWins} total wins</p>
+                            </div>
+                            <Trophy className="ml-auto h-4 w-4 text-yellow-500 shrink-0" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+
+                  {/* Stats table with visual bars */}
+                  <div className="rounded-lg border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>SL.No</TableHead>
+                          <TableHead>User Name</TableHead>
+                          <TableHead className="bg-muted text-center">Tic-Tac-Toe Stats</TableHead>
+                          <TableHead className="bg-muted text-center">Connect Four Stats</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {gameStats
+                          .slice((gamesPage - 1) * gamesPageSize, gamesPage * gamesPageSize)
+                          .map((stat) => {
+                            const tttDraw = Math.max(0, stat.ttt_played - stat.ttt_won - stat.ttt_lost);
+                            const c4Draw  = Math.max(0, stat.con4_played - stat.con4_won - stat.con4_lost);
+                            return (
+                              <TableRow key={stat.id}>
+                                <TableCell>{stat.id}</TableCell>
+                                <TableCell className="font-medium">{stat.name}</TableCell>
+
+                                {/* TTT visual stats */}
+                                <TableCell className="bg-blue-50/20 dark:bg-blue-950/10">
+                                  <div className="min-w-[150px] space-y-0.5">
+                                    <p className="text-[10px] text-muted-foreground font-medium mb-1.5">
+                                      {stat.ttt_played} played
+                                    </p>
+                                    <StatMiniBar label="W" value={stat.ttt_won}  total={stat.ttt_played} color="#22c55e" />
+                                    <StatMiniBar label="L" value={stat.ttt_lost} total={stat.ttt_played} color="#ef4444" />
+                                    <StatMiniBar label="D" value={tttDraw}       total={stat.ttt_played} color="#94a3b8" />
+                                  </div>
+                                </TableCell>
+
+                                {/* C4 visual stats */}
+                                <TableCell className="bg-orange-50/20 dark:bg-orange-950/10">
+                                  <div className="min-w-[150px] space-y-0.5">
+                                    <p className="text-[10px] text-muted-foreground font-medium mb-1.5">
+                                      {stat.con4_played} played
+                                    </p>
+                                    <StatMiniBar label="W" value={stat.con4_won}  total={stat.con4_played} color="#22c55e" />
+                                    <StatMiniBar label="L" value={stat.con4_lost} total={stat.con4_played} color="#ef4444" />
+                                    <StatMiniBar label="D" value={c4Draw}         total={stat.con4_played} color="#94a3b8" />
+                                  </div>
+                                </TableCell>
+
+                                <TableCell>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      setStatsToDelete(stat.statsId);
+                                      setDeleteDialogOpen(true);
+                                    }}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
                   </div>
+                  <PaginationControls
+                    page={gamesPage}
+                    pageSize={gamesPageSize}
+                    total={gameStats.length}
+                    onPageChange={setGamesPage}
+                    onPageSizeChange={setGamesPageSize}
+                  />
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Gamepad2 className="h-12 w-12 text-muted-foreground mb-4" />
@@ -1438,6 +1595,23 @@ export default function AdminPage() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Speedometer Gauge Summary */}
+              {!isLoading && permissionUsers.length > 0 && (() => {
+                const total = permissionUsers.length;
+                const perms: (keyof typeof permissionUsers[0])[] = ['notes','tasks','images','games','messages','news','calendar'];
+                const fullyEnabled  = permissionUsers.filter(u => perms.every(p => u[p] === true)).length;
+                const fullyRestricted = permissionUsers.filter(u => perms.every(p => u[p] === false)).length;
+                const partial = total - fullyEnabled - fullyRestricted;
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                    <GaugeCard title="Total Users"      value={total}           total={total} color="hsl(var(--primary))"  bgClass="bg-primary/5" />
+                    <GaugeCard title="Fully Enabled"    value={fullyEnabled}    total={total} color="#22c55e"             bgClass="bg-green-500/5" />
+                    <GaugeCard title="Partial Access"   value={partial}         total={total} color="#f59e0b"             bgClass="bg-yellow-500/5" />
+                    <GaugeCard title="No Access"        value={fullyRestricted} total={total} color="#ef4444"             bgClass="bg-red-500/5" />
+                  </div>
+                );
+              })()}
+
               {/* Search Control */}
               <div className="mb-6">
                 <div className="relative">
@@ -1458,6 +1632,7 @@ export default function AdminPage() {
                   ))}
                 </div>
               ) : filteredPermissionUsers.length > 0 ? (
+                <>
                 <div className="rounded-lg border overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1538,7 +1713,9 @@ export default function AdminPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredPermissionUsers.map((user) => (
+                      {filteredPermissionUsers
+                        .slice((permsPage - 1) * permsPageSize, permsPage * permsPageSize)
+                        .map((user) => (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">
                             <div>
@@ -1673,6 +1850,14 @@ export default function AdminPage() {
                     </TableBody>
                   </Table>
                 </div>
+                <PaginationControls
+                  page={permsPage}
+                  pageSize={permsPageSize}
+                  total={filteredPermissionUsers.length}
+                  onPageChange={setPermsPage}
+                  onPageSizeChange={setPermsPageSize}
+                />
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Shield className="h-12 w-12 text-muted-foreground mb-4" />
@@ -2037,6 +2222,7 @@ export default function AdminPage() {
                   ))}
                 </div>
               ) : filteredRequests.length > 0 ? (
+                <>
                 <div className="rounded-lg border overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -2082,7 +2268,9 @@ export default function AdminPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredRequests.map((request) => {
+                      {filteredRequests
+                        .slice((requestsPage - 1) * requestsPageSize, requestsPage * requestsPageSize)
+                        .map((request) => {
                         const user = typeof request.user === 'object' ? request.user : null;
                         const permissionNames: { [key: string]: string } = {
                           notes: 'Notes',
@@ -2163,6 +2351,14 @@ export default function AdminPage() {
                     </TableBody>
                   </Table>
                 </div>
+                <PaginationControls
+                  page={requestsPage}
+                  pageSize={requestsPageSize}
+                  total={filteredRequests.length}
+                  onPageChange={setRequestsPage}
+                  onPageSizeChange={setRequestsPageSize}
+                />
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />

@@ -92,7 +92,7 @@ export default function TicTacToePage() {
           setOppStats({
             id: oppPlayer.userId,
             name: oppPlayer.name,
-            played: oppPlayer.gamesPlayed,
+            played: oppPlayer.tttStats?.played ?? oppPlayer.gamesPlayed ?? 0,
           });
           setBoardFunc(data.board);
         }
@@ -123,7 +123,7 @@ export default function TicTacToePage() {
             setOppStats({
               id: oppPlayer.userId,
               name: oppPlayer.name,
-              played: oppPlayer.gamesPlayed,
+              played: oppPlayer.tttStats?.played ?? oppPlayer.gamesPlayed ?? 0,
             });
           }
         }
@@ -231,18 +231,23 @@ export default function TicTacToePage() {
         return;
       }
       if (data) {
+        const myRole = user.userId === data.userIdX ? "X" : "O";
+        const storedRole = sessionStorage.getItem("tttPlayer") as Player | null;
+        // Use stored role as fallback in case API field is missing/mismatched
+        const resolvedRole: Player = (storedRole === "X" || storedRole === "O") ? storedRole : myRole;
         setConnected(true);
         setRoomDetails({ id: data.gameId, joined: true });
         setBoardFunc(data.board);
         setTurn(data.turn as Player);
         setComp(false);
-        setPlayer(user.userId === data.userIdX ? "X" : "O");
+        setPlayer(resolvedRole);
+        sessionStorage.setItem("tttPlayer", resolvedRole);
         const oppPlayer = user.userId === data.player1.userId ? data.player2 : data.player1;
         if (oppPlayer) {
           setOppStats({
             id: oppPlayer.userId,
             name: oppPlayer.name,
-            played: oppPlayer.gamesPlayed,
+            played: oppPlayer.tttStats?.played ?? oppPlayer.gamesPlayed ?? 0,
           });
         }
         toast({
@@ -305,6 +310,7 @@ export default function TicTacToePage() {
         setConnected(true);
         setRoomDetails({ id: data.gameId, joined: true });
         setPlayer("X");
+        sessionStorage.setItem("tttPlayer", "X");
         toast({
           title: "Success",
           description: "Room created",
@@ -361,20 +367,26 @@ export default function TicTacToePage() {
         return;
       }
       if (data) {
+        // Determine role from server response — handles rejoining own room as player X
+        const myRole = userstats.id === data.userIdX ? "X" : "O";
         setConnected(true);
         setBoardFunc(data.board);
         setRoomDetails({ id: data.gameId, joined: true });
-        setPlayer("O");
+        setPlayer(myRole);
+        sessionStorage.setItem("tttPlayer", myRole);
         toast({
           title: "Success",
           description: `Joined ${data.player1.name}'s room`,
         });
         sessionStorage.setItem("tttRoomId", data.gameId);
-        setOppStats({
-          id: data.player1.userId,
-          name: data.player1.name,
-          played: data.player1.gamesPlayed,
-        });
+        const oppPlayer = userstats.id === data.player1.userId ? data.player2 : data.player1;
+        if (oppPlayer) {
+          setOppStats({
+            id: oppPlayer.userId,
+            name: oppPlayer.name,
+            played: oppPlayer.tttStats?.played ?? oppPlayer.gamesPlayed ?? 0,
+          });
+        }
       }
     } catch (err) {
       console.log("Error***", err);
@@ -388,6 +400,7 @@ export default function TicTacToePage() {
 
   const handleExitRoom = () => {
     sessionStorage.removeItem("tttRoomId");
+    sessionStorage.removeItem("tttPlayer");
     setConnected(false);
     setRoomDetails({ id: "", joined: false });
     setPlayer("");
@@ -680,34 +693,40 @@ export default function TicTacToePage() {
                         }
                       </Badge>
                     </div>
-                    <div className="grid grid-cols-3 gap-3 max-w-md mx-auto w-full">
-                      {[0, 1, 2].map((row) => (
-                        <React.Fragment key={row}>
-                          {[0, 1, 2].map((col) => {
-                            const index = row * 3 + col;
-                            return (
-                              <div
-                                key={index}
-                                id={String(index + 1)}
-                                data-row={String(row)}
-                                data-col={String(col)}
-                                onClick={handleClick}
-                                className={`aspect-square rounded-xl border-2 flex items-center justify-center text-5xl font-bold transition-all cursor-pointer ${
-                                  board[index] === "X"
-                                    ? "bg-blue-500/20 border-blue-500 text-blue-600"
-                                    : board[index] === "O"
-                                    ? "bg-red-500/20 border-red-500 text-red-600"
-                                    : "bg-card border-border hover:border-primary hover-elevate"
-                                }`}
-                                style={{ backgroundColor: board[index] ? undefined : "white" }}
-                                data-testid={`cell-${index}`}
-                              >
-                                {board[index]}
-                              </div>
-                            );
-                          })}
-                        </React.Fragment>
-                      ))}
+                    <div className={`p-3 rounded-xl transition-all duration-300 ${
+                      !gameComp && player === currTurn
+                        ? "ring-2 ring-primary bg-primary/10 shadow-[0_0_18px_rgba(var(--primary),0.35)]"
+                        : "bg-muted/40"
+                    }`}>
+                      <div className="grid grid-cols-3 gap-3 max-w-md mx-auto w-full">
+                        {[0, 1, 2].map((row) => (
+                          <React.Fragment key={row}>
+                            {[0, 1, 2].map((col) => {
+                              const index = row * 3 + col;
+                              return (
+                                <div
+                                  key={index}
+                                  id={String(index + 1)}
+                                  data-row={String(row)}
+                                  data-col={String(col)}
+                                  onClick={handleClick}
+                                  className={`aspect-square rounded-xl border-2 flex items-center justify-center text-5xl font-bold transition-all cursor-pointer ${
+                                    board[index] === "X"
+                                      ? "bg-blue-500/20 border-blue-500 text-blue-600"
+                                      : board[index] === "O"
+                                      ? "bg-red-500/20 border-red-500 text-red-600"
+                                      : "bg-card border-border hover:border-primary hover-elevate"
+                                  }`}
+                                  style={{ backgroundColor: board[index] ? undefined : "white" }}
+                                  data-testid={`cell-${index}`}
+                                >
+                                  {board[index]}
+                                </div>
+                              );
+                            })}
+                          </React.Fragment>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -795,13 +814,13 @@ export default function TicTacToePage() {
                   <CardTitle className="text-lg">Opponent Stats</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center p-2 border rounded">
-                    <span className="font-medium">Player Name:</span>
-                    <span>{oppStats.name}</span>
+                  <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Player</span>
+                    <span className="font-semibold">{oppStats.name}</span>
                   </div>
-                  <div className="flex justify-between items-center p-2 border rounded">
-                    <span className="font-medium">Games Played:</span>
-                    <span>{oppStats.played}</span>
+                  <div className="flex flex-col items-center justify-center py-3 gap-1">
+                    <p className="text-4xl font-bold">{oppStats.played}</p>
+                    <p className="text-sm text-muted-foreground">Games Played</p>
                   </div>
                 </CardContent>
               </Card>
@@ -812,19 +831,46 @@ export default function TicTacToePage() {
                     Game Stats {userstats.name ? `(${userstats.name})` : ""}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center p-2 border rounded">
-                    <span className="font-medium">Games Played:</span>
-                    <span>{userstats.played}</span>
+                <CardContent className="space-y-4">
+                  {/* Summary grid */}
+                  <div className="grid grid-cols-4 gap-1.5 text-center">
+                    {[
+                      { label: "Played", value: userstats.played, cls: "text-foreground" },
+                      { label: "Won", value: userstats.won, cls: "text-green-600 dark:text-green-400" },
+                      { label: "Lost", value: userstats.loss, cls: "text-red-500" },
+                      { label: "Draw", value: Math.max(0, userstats.played - userstats.won - userstats.loss), cls: "text-muted-foreground" },
+                    ].map(({ label, value, cls }) => (
+                      <div key={label} className="p-2 bg-muted/50 rounded-lg">
+                        <p className={`text-xl font-bold ${cls}`}>{value}</p>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex justify-between items-center p-2 border rounded">
-                    <span className="font-medium">Games Won:</span>
-                    <span>{userstats.won}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-2 border rounded">
-                    <span className="font-medium">Games Lost:</span>
-                    <span>{userstats.loss}</span>
-                  </div>
+                  {/* Animated stat bars */}
+                  {userstats.played > 0 ? (
+                    <div className="space-y-2.5">
+                      {[
+                        { label: "Win Rate", value: userstats.won, color: "bg-green-500" },
+                        { label: "Loss Rate", value: userstats.loss, color: "bg-red-500" },
+                        { label: "Draw Rate", value: Math.max(0, userstats.played - userstats.won - userstats.loss), color: "bg-slate-400 dark:bg-slate-500" },
+                      ].map(({ label, value, color }) => {
+                        const pct = Math.round((value / userstats.played) * 100);
+                        return (
+                          <div key={label}>
+                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                              <span>{label}</span>
+                              <span className="font-medium">{pct}%</span>
+                            </div>
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                              <div className={`h-full ${color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-1">No games played yet</p>
+                  )}
                 </CardContent>
               </Card>
             </div>
