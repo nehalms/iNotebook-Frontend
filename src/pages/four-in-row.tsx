@@ -77,6 +77,8 @@ export default function FourInRowPage() {
   });
   const stompClientRef = useRef<any>(null);
   const [gameStatus, setGameStatus] = useState<"FINISHED" | "">("");
+  const [confirmMode, setConfirmMode] = useState(() => sessionStorage.getItem("c4ConfirmMode") === "true");
+  const [pendingCol, setPendingCol] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -441,10 +443,8 @@ export default function FourInRowPage() {
   };
 
   const handleClick = async (col: number) => {
-    if (gameComp) {
-      return;
-    }
-    if (player != currTurn) {
+    if (gameComp) return;
+    if (player !== currTurn) {
       toast({
         title: "Warning",
         description: "Opponent player turn",
@@ -452,8 +452,16 @@ export default function FourInRowPage() {
       });
       return;
     }
-    if (secondClk === true) {
-      return;
+    if (secondClk) return;
+
+    // Confirm-mode: first click previews the column, second confirms
+    if (confirmMode) {
+      if (pendingCol !== col) {
+        setPendingCol(col);
+        return;
+      }
+      // Same column clicked again — fall through to submit
+      setPendingCol(null);
     }
 
     let row_: number | undefined;
@@ -606,6 +614,7 @@ export default function FourInRowPage() {
   const renderSquare = (row: number, col: number) => {
     const isFilled = board[row][col];
     const isWinningCell = isFilled === 10 || isFilled === 20;
+    const isPendingCol = confirmMode && pendingCol === col && !gameComp && player === currTurn;
     let color = "white";
     const xColor = player === "X" ? (selectedColor || "red")   : "red";
     const oColor = player === "O" ? (selectedColor || "yellow") : "yellow";
@@ -621,13 +630,15 @@ export default function FourInRowPage() {
       <div
         key={`${row}-${col}`}
         className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full border-2 cursor-pointer hover:border-primary transition-all flex-shrink-0 relative aspect-square ${
-          isWinningCell 
-            ? "border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]" 
+          isWinningCell
+            ? "border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]"
+            : isPendingCol
+            ? "border-primary shadow-[0_0_8px_rgba(var(--primary),0.7)]"
             : "border-border"
         }`}
         onClick={() => handleClick(col)}
         style={{
-          backgroundColor: "white",
+          backgroundColor: isPendingCol && !isFilled ? "rgba(var(--primary), 0.12)" : "white",
         }}
         data-testid={`cell-${row}-${col}`}
       >
@@ -684,12 +695,33 @@ export default function FourInRowPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-2xl font-serif">Game Board</CardTitle>
-                  {roomDetails.joined && (
-                    <Button onClick={handleReset} variant="outline" size="sm" className="gap-2">
-                      <RotateCcw className="h-4 w-4" />
-                      New Game
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Confirm Move toggle */}
+                    {player !== "" && !gameComp && (
+                      <Button
+                        variant={confirmMode ? "default" : "outline"}
+                        size="sm"
+                        className="gap-2 text-xs"
+                        onClick={() => {
+                          setConfirmMode(m => {
+                            const next = !m;
+                            sessionStorage.setItem("c4ConfirmMode", String(next));
+                            return next;
+                          });
+                          setPendingCol(null);
+                        }}
+                        title="When on: click a column to preview, click again to confirm"
+                      >
+                        {confirmMode ? "✓ Confirm Move: ON" : "Confirm Move: OFF"}
+                      </Button>
+                    )}
+                    {roomDetails.joined && (
+                      <Button onClick={handleReset} variant="outline" size="sm" className="gap-2">
+                        <RotateCcw className="h-4 w-4" />
+                        New Game
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="overflow-x-auto">
@@ -702,12 +734,22 @@ export default function FourInRowPage() {
                         }
                       </Badge>
                     </div>
-                    <div className={`flex justify-center p-2 sm:p-3 md:p-4 lg:p-6 rounded-xl w-full overflow-x-auto max-w-full transition-all duration-300 ${
+                    <div className={`flex justify-center p-2 sm:p-3 md:p-4 lg:p-6 rounded-xl w-full overflow-x-auto max-w-full transition-colors duration-300 ring-2 ${
                       !gameComp && player === currTurn
-                        ? "bg-primary/10 ring-2 ring-primary shadow-[0_0_18px_rgba(var(--primary),0.35)]"
-                        : "bg-muted/40"
+                        ? "bg-primary/10 ring-primary shadow-[0_0_18px_rgba(var(--primary),0.35)]"
+                        : "bg-muted/40 ring-transparent shadow-none"
                     }`}>
                       <div className="inline-block max-w-full">
+                        {/* Arrow row — always at fixed height so board never resizes */}
+                        <div className="flex gap-0.5 sm:gap-1 md:gap-1.5 justify-center flex-nowrap mb-1" style={{ height: "1.5rem" }}>
+                          {confirmMode && player === currTurn && !gameComp && Array.from({ length: COLS }).map((_, ci) => (
+                            <div key={ci} className="w-8 sm:w-10 md:w-12 flex justify-center flex-shrink-0">
+                              {ci === pendingCol && (
+                                <span className="text-primary text-lg leading-none animate-bounce">▼</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                         <div className="space-y-0.5 sm:space-y-1">
                           {board.map((row, rowIndex) => (
                             <div key={rowIndex} className="flex gap-0.5 sm:gap-1 md:gap-1.5 justify-center flex-nowrap">
